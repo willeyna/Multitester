@@ -1,0 +1,14 @@
+!/bin/bash --login
+########## SBATCH Lines for Resource Request ##########
+#SBATCH --time= {time}             # limit of wall clock time - how long the job will run (same as -t)
+#SBATCH --mem= {mem}            # memory required per allocated CPU (or core) - amount of memory (in bytes)
+#SBATCH --job-name {tasknm}      # you can give your job a name for easier identification (same as -J)
+#SBATCH --output WRITE IN DIR/{tasknm}.out
+
+########## Command Lines to Run ##########
+
+cd /mnt/research/IceCube/willey/SW_BKG
+export PATH=$PATH:/mnt/research/IceCube/willey/conda3/bin/
+conda activate base
+
+/mnt/research/IceCube/willey/conda3/bin/python3 /mnt/research/IceCube/willey/SW_BKG signal_gen.py {obj}
