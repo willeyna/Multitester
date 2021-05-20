@@ -359,7 +359,10 @@ class multi_tester():
     Both the background TS distribution creation and an array of significances tested against the background
     Choose so many things in this function
     '''
-    def run(self, bkg_trials, filecount, runtime, mem = '50G', signal_trials = 0, ninj_tracks = 0, ninj_cascades = 0, inj_ra = 0, inj_dec = 0, outpath = './results/', clean = True):
+    def run(self, ra, dec,  bkg_trials, filecount, runtime, mem = '50G', signal_trials = 0, ninj_tracks = 0, ninj_cascades = 0, inj_ra = 0, inj_dec = 0, outpath = './results/', clean = True):
+        
+        self.ra = ra
+        self.dec = dec
 
         if type(runtime) != type(''):
             raise ValueError('Input runtime as a string of the form hr:min:seconds (ex 5:00:00 for 5 hours)')
