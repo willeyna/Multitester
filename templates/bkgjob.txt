@@ -3,7 +3,7 @@
 #SBATCH --time={time}             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --mem={mem}            # memory required per allocated CPU (or core) - amount of memory (in bytes)
 #SBATCH --job-name {tasknm}{tag}      # you can give your job a name for easier identification (same as -J)
-#SBATCH --output /mnt/research/IceCube/willey/Multitester/working/{tasknm}.out
+#SBATCH --output /mnt/research/IceCube/willey/Multitester/working/{tasknm}{tag}.out
 
 ########## Command Lines to Run ##########
 
