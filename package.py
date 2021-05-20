@@ -386,7 +386,7 @@ class multi_tester():
         for i in range(filecount):
             filstr=filnam+"_"+str(i)+".sb"
             f = open('./templates/bkgjob.txt', 'r')
-            filetxt = f.read().format(time = runtime, mem = mem, tasknm = 'multitester_' + self.timetag, obj = self.pkl)
+            filetxt = f.read().format(time = runtime, mem = mem, tasknm = 'multitester_' + self.timetag, obj = self.pkl, tag = str(i))
             f.close()
             f = open('./working/' +filstr, 'w+')
             f.write(filetxt)
