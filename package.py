@@ -449,16 +449,16 @@ class multi_tester():
         for i in range(filecount):
             joblist += f'JOB J{i} ./working/{filnam}_{i}.sb\n'
             jstr += f'J{i} '
-        joblist += f'JOB RP ./working/{filnam}_rp.sb\n'
-        joblist += f'JOB CLEAN ./working/{filnam}_clean.sb\n'
+        joblist += f'JOB RP ./working/repack_{filnam}.sb\n'
+        joblist += f'JOB CLEAN ./working/clean_{filnam}.sb\n'
 
         if signal_trials:
             joblist += f'JOB S ./working/signal_{filnam}.sb\n'
-            joblist += f'JOB SRP ./working/{filnam}_srp.sb\n'
+            joblist += f'JOB SS ./working/sigsum_{filnam}.sb\n'
 
-            contents = joblist + '\nPARENT S CHILD ' + jstr + '\nPARENT ' + jstr + 'CHILD R SRP'
+            contents = joblist + '\nPARENT S CHILD ' + jstr + '\nPARENT ' + jstr + 'CHILD R SS'
             if clean:
-                contents += '\nPARENT R SRP CHILD CLEAN'
+                contents += '\nPARENT R SS CHILD CLEAN'
         else:
             contents = joblist + '\nPARENT ' + jstr + 'CHILD R'
             if clean:
