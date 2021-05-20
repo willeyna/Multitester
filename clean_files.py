@@ -1,0 +1,1 @@
+print('Pretend everything is clean ok thanks')
