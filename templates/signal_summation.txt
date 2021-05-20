@@ -1,4 +1,4 @@
-!/bin/bash --login
+#!/bin/bash --login
 ########## SBATCH Lines for Resource Request ##########
 #SBATCH --time= 4:00:00             # limit of wall clock time - how long the job will run (same as -t)
 #SBATCH --mem= 80G            # memory required per allocated CPU (or core) - amount of memory (in bytes)
