@@ -1,0 +1,28 @@
+JOB J0 ./working/multitester_20210520095738900391_0.sb
+JOB J1 ./working/multitester_20210520095738900391_1.sb
+JOB J2 ./working/multitester_20210520095738900391_2.sb
+JOB J3 ./working/multitester_20210520095738900391_3.sb
+JOB J4 ./working/multitester_20210520095738900391_4.sb
+JOB J5 ./working/multitester_20210520095738900391_5.sb
+JOB J6 ./working/multitester_20210520095738900391_6.sb
+JOB J7 ./working/multitester_20210520095738900391_7.sb
+JOB J8 ./working/multitester_20210520095738900391_8.sb
+JOB J9 ./working/multitester_20210520095738900391_9.sb
+JOB J10 ./working/multitester_20210520095738900391_10.sb
+JOB J11 ./working/multitester_20210520095738900391_11.sb
+JOB J12 ./working/multitester_20210520095738900391_12.sb
+JOB J13 ./working/multitester_20210520095738900391_13.sb
+JOB J14 ./working/multitester_20210520095738900391_14.sb
+JOB J15 ./working/multitester_20210520095738900391_15.sb
+JOB J16 ./working/multitester_20210520095738900391_16.sb
+JOB J17 ./working/multitester_20210520095738900391_17.sb
+JOB J18 ./working/multitester_20210520095738900391_18.sb
+JOB J19 ./working/multitester_20210520095738900391_19.sb
+JOB RP ./working/multitester_20210520095738900391_rp.sb
+JOB CLEAN ./working/multitester_20210520095738900391_clean.sb
+JOB S ./working/signal_multitester_20210520095738900391.sb
+JOB SRP ./working/multitester_20210520095738900391_srp.sb
+
+PARENT S CHILD J0 J1 J2 J3 J4 J5 J6 J7 J8 J9 J10 J11 J12 J13 J14 J15 J16 J17 J18 J19 
+PARENT J0 J1 J2 J3 J4 J5 J6 J7 J8 J9 J10 J11 J12 J13 J14 J15 J16 J17 J18 J19 CHILD R SRP
+PARENT R SRP CHILD CLEAN
