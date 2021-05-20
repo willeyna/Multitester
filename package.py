@@ -472,7 +472,7 @@ class multi_tester():
         signal_filename = 'multitester_' + self.timetag + "_SIGMA.npz"
 
         #start the program
-        #os.system(f'python2 sdag.py ./working/{filnam}.sdag')
+        os.system(f'python2 sdag.py ./working/{filnam}.sdag')
 
         self.ran = True
         self.bkg = bkg_filename
