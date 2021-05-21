@@ -481,7 +481,7 @@ class multi_tester():
         fout.close()
 
         bkg_filename = 'multitester_' + self.timetag + "_BKG.npz"
-        signal_filename = 'multitester_' + self.timetag + "_SIGMA.npz"
+        signal_filename = 'multitester_' + self.timetag + "_SIGNAL.npz"
 
         #start the program
         os.system(f'python2 sdag.py ./working/{filnam}.sdag')
