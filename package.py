@@ -276,7 +276,7 @@ def MM(tracks, cascades, ra = 45, dec = 60):
     St =  evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']], [ra,dec])
     Sc = evPSFd([cascades['ra'],cascades['dec'],cascades['angErr']], [ra,dec])
     TS = (np.sum(St)/tracks.shape[0]) * (np.sum(Sc) / cascades.shape[0])
-    return TSs
+    return TS
 
 # TOPOLOGY RATIO PRIOR APPLIED
 # THIS VERSION DOES NOT USE knn FOR  SIGNAL COUNT; USES LLH MAXIMIZER
