@@ -452,7 +452,7 @@ class multi_tester():
         for i in range(filecount):
             joblist += f'JOB J{i} ./working/{filnam}_{i}.sb\n'
             jstr += f'J{i} '
-        joblist += f'JOB RP ./working/repack_{filnam}.sb\n'
+        joblist += f'JOB R ./working/repack_{filnam}.sb\n'
         joblist += f'JOB CLEAN ./working/clean_{filnam}.sb\n'
 
         if signal_trials:
