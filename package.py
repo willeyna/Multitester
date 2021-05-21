@@ -572,7 +572,7 @@ class multi_tester():
     all the useful benchmarking info one would need to calculate the stuff for background files
     Returns: Total time to run N trials, Average time per trial, Array of each time per trial
     """
-    def benchmarking(self, N, bar  = False):
+    def benchmarking(self, N, printout = False,  bar  = False):
         times = np.zeros(N)
         if bar:
             for i in tqdm(range(N)):
@@ -586,4 +586,6 @@ class multi_tester():
                 self.test_methods(0,0)
                 t2 = datetime.datetime.now()
                 times[i] = (t2-t1).total_seconds()
+        if printout:
+            print(np.sum(times), np.mean(times), times)
         return np.sum(times), np.mean(times), times

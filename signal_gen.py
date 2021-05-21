@@ -10,4 +10,4 @@ for i in (np.arange(tester.signal_trials)):
 t2= datetime.datetime.now()
 dt=(t2-t1).total_seconds()
 
-np.savez('./working/' + tester.name + "_SIGNAL.npz", TS = signal_TS, runtime = dt)
+np.savez('./data/' + tester.name + "_SIGNAL.npz", TS = signal_TS, runtime = dt)

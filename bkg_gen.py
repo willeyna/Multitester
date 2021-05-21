@@ -15,7 +15,7 @@ bkg_TS.sort(axis = 0);
 
 if tester.signal_trials: 
     #compare signal trials to this background sample
-    signal_TS = np.load('./working/'+tester.name + "_SIGNAL.npz")['TS']
+    signal_TS = np.load('./data/'+tester.name + "_SIGNAL.npz")['TS']
     #counts the number of background events larger than each signal event in this distribution fragment
     psum = np.zeros([tester.signal_trials, len(tester.Methods)])
     for i in range(len(tester.Methods)):
