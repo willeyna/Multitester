@@ -276,7 +276,7 @@ def MM(tracks, cascades, ra = 45, dec = 60):
     St =  evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']], [ra,dec])
     Sc = evPSFd([cascades['ra'],cascades['dec'],cascades['angErr']], [ra,dec])
     TS = (np.sum(St)/tracks.shape[0]) * (np.sum(Sc) / cascades.shape[0])
-    return TSs
+    return TS,
 
 # TOPOLOGY RATIO PRIOR APPLIED
 # THIS VERSION DOES NOT USE knn FOR  SIGNAL COUNT; USES LLH MAXIMIZER
@@ -481,7 +481,7 @@ class multi_tester():
         fout.close()
 
         bkg_filename = 'multitester_' + self.timetag + "_BKG.npz"
-        signal_filename = 'multitester_' + self.timetag + "_SIGMA.npz"
+        signal_filename = 'multitester_' + self.timetag + "_SIGNAL.npz"
 
         self.bkg = bkg_filename
         self.signal = signal_filename
@@ -572,11 +572,20 @@ class multi_tester():
     all the useful benchmarking info one would need to calculate the stuff for background files
     Returns: Total time to run N trials, Average time per trial, Array of each time per trial
     """
-    def benchmarking(self, N):
+    def benchmarking(self, N, printout = False,  bar  = False):
         times = np.zeros(N)
-        for i in tqdm(range(N)):
-            t1 = datetime.datetime.now()
-            self.test_methods(0,0)
-            t2 = datetime.datetime.now()
-            times[i] = (t2-t1).total_seconds()
+        if bar:
+            for i in tqdm(range(N)):
+                t1 = datetime.datetime.now()
+                self.test_methods(0,0)
+                t2 = datetime.datetime.now()
+                times[i] = (t2-t1).total_seconds()
+        else:
+            for i in range(N):
+                t1 = datetime.datetime.now()
+                self.test_methods(0,0)
+                t2 = datetime.datetime.now()
+                times[i] = (t2-t1).total_seconds()
+        if printout:
+            print(np.sum(times), np.mean(times), times)
         return np.sum(times), np.mean(times), times
