@@ -1,6 +1,8 @@
 NEAR FUTURE TO-DO:
 
-* Change where signal TS dist is being saved to/ called from [ ]
+* Change where signal TS dist is being saved to/ called from [X]
+
+* Add method arg dictionary for passing misc items in [ ]
 
 * Add declination binning code with scrambling of background testing locations and injection locations within bands [ ]
 
@@ -17,3 +19,5 @@ LATER VERSIONS:
 * Multiple background distributions for one object [ ] 
 
 * Outputs modes
+
+* Add a path argument to run (for creation of sbatch) (right now you manually set up sbatch)

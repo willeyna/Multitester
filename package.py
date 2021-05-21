@@ -22,7 +22,7 @@ params = np.array([[ 7.83668562e+13, -2.29461080e+00],
 def bisection(array,value):
     '''
     Bisecting sort algorithm for signifigance calculations
-    
+
     Given an ``array`` , and given a ``value`` , returns an index j such that ``value`` is between array[j]
     and array[j+1]. ``array`` must be monotonic increasing. j=-1 or j=len(array) is returned
     to indicate that ``value`` is out of range below and above respectively.'''
@@ -366,8 +366,8 @@ class multi_tester():
     Both the background TS distribution creation and an array of significances tested against the background
     Choose so many things in this function
     '''
-    def run(self, ra, dec,  bkg_trials, filecount, runtime, mem = '50G', signal_trials = 0, ninj_tracks = 0, ninj_cascades = 0, inj_ra = 0, inj_dec = 0, outpath = './results/', clean = True):
-        
+    def run(self, ra, dec,  bkg_trials, filecount, runtime, mem = '50G', signal_trials = 0, ninj_tracks = 0, ninj_cascades = 0, inj_ra = 0, inj_dec = 0, outpath = './results/', clean = True, dryrun = False):
+
         self.signal_trials = signal_trials
         self.ra = ra
         self.dec = dec
@@ -484,7 +484,8 @@ class multi_tester():
         signal_filename = 'multitester_' + self.timetag + "_SIGNAL.npz"
 
         #start the program
-        os.system(f'python2 sdag.py ./working/{filnam}.sdag')
+        if not dryrun:
+            os.system(f'python2 sdag.py ./working/{filnam}.sdag')
 
         self.ran = True
         self.bkg = bkg_filename
