@@ -361,6 +361,7 @@ class multi_tester():
     '''
     def run(self, ra, dec,  bkg_trials, filecount, runtime, mem = '50G', signal_trials = 0, ninj_tracks = 0, ninj_cascades = 0, inj_ra = 0, inj_dec = 0, outpath = './results/', clean = True):
         
+        self.signal_trials = signal_trials
         self.ra = ra
         self.dec = dec
 
