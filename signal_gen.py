@@ -2,7 +2,7 @@ from package import *
 
 tester = pickle.load(open('./Testers/' + sys.argv[1],'rb'))
 
-signal_TS = np.zeros([tester.nper, len(tester.Methods)])
+signal_TS = np.zeros([tester.signal_trials, len(tester.Methods)])
 
 t1= datetime.datetime.now()
 for i in (np.arange(tester.signal_trials)):

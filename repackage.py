@@ -24,7 +24,7 @@ for j,fil in enumerate(fils):
     print(statstr,end="\r")
     file=np.load(fil)
     outdat=np.hstack((outdat,file["TS"]))
-    cputime += file['dt']
+    cputime += file['runtime']
 
 print("sorting data")
 
@@ -33,4 +33,4 @@ outdat.sort(axis=0)
 print("packing data")
 
 np.savez('./data/' + tester.name + "_BKG.npz", TS = outdat, time = cputime)
-print(f'file saved to ./data/' + {tester.name} + "_BKG.npz")
+print(f'file saved to ./data/{tester.name}_BKG.npz')
