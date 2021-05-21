@@ -383,6 +383,7 @@ class multi_tester():
         self.pkl = 'multitester_' + self.timetag + '.pkl'
 
         #number of events per job
+        self.filecount = filecount
         self.nper= bkg_trials//filecount
         #write bkg sbatchs
         filnam="multitester_" + self.timetag
