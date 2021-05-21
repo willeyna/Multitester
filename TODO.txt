@@ -1,0 +1,19 @@
+NEAR FUTURE TO-DO:
+
+* Change where signal TS dist is being saved to/ called from [ ]
+
+* Add declination binning code with scrambling of background testing locations and injection locations within bands [ ]
+
+* Change the calculation of sigma to be band dependent [ ]
+
+* Change the way injection amounts are specified [ ]
+
+* TC plots, contours, and sensitivity [ ]
+
+
+
+LATER VERSIONS: 
+
+* Multiple background distributions for one object [ ] 
+
+* Outputs modes
