@@ -11,4 +11,4 @@ cd /mnt/research/IceCube/willey/Multitester
 export PATH=$PATH:/mnt/research/IceCube/willey/conda3/bin/
 conda activate base
 
-/mnt/research/IceCube/willey/conda3/bin/python3 /mnt/research/IceCube/willey/Multitester sigsum.py {obj}
+/mnt/research/IceCube/willey/conda3/bin/python3 /mnt/research/IceCube/willey/Multitester/sigsum.py {obj}
