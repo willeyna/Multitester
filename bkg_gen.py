@@ -19,7 +19,7 @@ if tester.signal_trials:
     #counts the number of background events larger than each signal event in this distribution fragment
     psum = np.zeros([tester.signal_trials, len(tester.Methods)])
     for i in range(len(tester.Methods)):
-        psum[:,i] = np.array([p_value(ev,bkg_TS)*bkg_TS.shape[0] for ev in signal_TS[:,i]])
+        psum[:,i] = np.array([p_value(ev,bkg_TS[:,i])*bkg_TS.shape[0] for ev in signal_TS[:,i]])
     np.savez('./working/'+ tester.name + "_BKG" + tag + ".npz", TS = bkg_TS, psum = psum, runtime = dt)
 else:
     np.savez('./working/'+ tester.name + "_BKG" + tag + ".npz", TS = bkg_TS, runtime = dt)
