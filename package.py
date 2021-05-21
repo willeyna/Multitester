@@ -483,18 +483,18 @@ class multi_tester():
         bkg_filename = 'multitester_' + self.timetag + "_BKG.npz"
         signal_filename = 'multitester_' + self.timetag + "_SIGMA.npz"
 
-        #start the program
-        if not dryrun:
-            os.system(f'python2 sdag.py ./working/{filnam}.sdag')
-
-        self.ran = True
         self.bkg = bkg_filename
         self.signal = signal_filename
+        self.ran = True
 
         #saves this object in a pkl file to be read in by other scripts
         dbfile = open('./Testers/multitester_' + self.timetag + '.pkl', 'wb+')
         pickle.dump(self, dbfile)
         dbfile.close()
+
+        #start the program
+        if not dryrun:
+            os.system(f'python2 sdag.py ./working/{filnam}.sdag')
 
         return
 
