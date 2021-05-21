@@ -18,12 +18,12 @@ outdat=np.load(fils[0])['TS']
 
 cputime = 0 
 statstr=" "
-for j,fil in enumerate(fils):
+for j,fil in enumerate(fils[1:]):
     print(len(statstr)*" ",end="\r")
     statstr=f"merging file {j+1}, {fil}"
     print(statstr,end="\r")
     file=np.load(fil)
-    outdat=np.hstack((outdat,file["TS"]))
+    outdat=np.concatenate((outdat,file["TS"]))
     cputime += file['runtime']
 
 print("sorting data")
