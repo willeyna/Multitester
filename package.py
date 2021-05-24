@@ -507,8 +507,10 @@ class multi_tester():
         try:
             bkg_dist = np.load("./data/"+self.bkg)
             signal_dist = np.load("./data/"+self.signal)
-            print("TS distributions successfully loaded in")
-            return bkg_dist, signal_dist
+            print("Background and signal trial files successfully loaded into .bkg and .signal")
+            self.bkg = bkg_dist
+            self.signal = signal_dist
+            return
         except:
             raise EnvironmentError('Is the background file missing/ created yet?')
 
