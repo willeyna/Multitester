@@ -335,7 +335,20 @@ def LLH_detector0(evs, ra, dec):
 
 class multi_tester():
 
-    def __init__(self, methods, tracks, cascades):
+    def __init__(self, methods, tracks, cascades, resolution = 8, dec_bands = np.column_stack([np.arange(-90,90,10),np.arange(-80,100,10)])):
+
+        #test of user inputted bands
+        #this test allows for discontinuous bands, but checks to make sure there is no overlap between declination bands
+        dec_bands = np.deg2rad(np.array(dec_bands))
+        for band in dec_bands:
+            assert(band[0] >= -90 and band[1] <= 90), "Declination is defined within [-90,90]."
+            for testband in dec_bands:
+                #tests the bands for any overlap
+                if np.all(band != testband):
+                    assert(not (band[0] > testband[0] and band[0] < testband[1])), "Your declination bands either overlap or are in an unsupported format."
+                    assert(not (band[1] > testband[0] and band[1] < testband[1])), "Your declination bands either overlap or are in an unsupported format."
+
+        self.dec_bands = dec_bands
 
         #list of method names exactly as they are written in the package (ex "LLH_detector")
         self.Methods = methods
@@ -344,6 +357,10 @@ class multi_tester():
         #will be consistent for everything this object is used for
         self.track_count = tracks
         self.cascade_count = cascades
+
+        #resolution of healpy grid
+        self.NSIDE = 2**resolution
+        self.NPIX = hp.nside2npix(NSIDE)
         #status on whether the program has been run for this object
         self.ran = False
         return
@@ -366,11 +383,9 @@ class multi_tester():
     Both the background TS distribution creation and an array of significances tested against the background
     Choose so many things in this function
     '''
-    def run(self, ra, dec,  bkg_trials, filecount, runtime, mem = '50G', signal_trials = 0, ninj_tracks = 0, ninj_cascades = 0, inj_ra = 0, inj_dec = 0, outpath = './results/', clean = True, dryrun = False):
+    def run(self, bkg_trials, filecount, runtime, mem = '50G', signal_trials = 0, ninj_tracks = 0, ninj_cascades = 0, outpath = './results/', clean = True, dryrun = False):
 
         self.signal_trials = signal_trials
-        self.ra = ra
-        self.dec = dec
 
         if type(runtime) != type(''):
             raise ValueError('Input runtime as a string of the form hr:min:seconds (ex 5:00:00 for 5 hours)')
@@ -433,8 +448,6 @@ class multi_tester():
 
             self.ninj_t = ninj_tracks
             self.ninj_c = ninj_cascades
-            self.inj_ra = inj_ra
-            self.inj_dec = inj_dec
 
             #write signal sbatch
             f = open('./templates/signaljob.txt', 'r')
@@ -518,30 +531,27 @@ class multi_tester():
     """
     Inputs: Injection information, and point on the sky
     Creates a MC sky according to specs in object and evaluates each method at a given point in the sky
+    If an event is injected, always tests on injection ra and declination
     Returns: Array of TS for each method
     """
-    def test_methods(self, ra, dec, ninj_t = 0, ninj_c = 0, inj_ra = 0, inj_dec = 0):
-        tracks = np.concatenate([gen(ninj_t, 2, 0, inra = inj_ra, indec = inj_dec),gen(self.track_count, 3.7, 0)])
-        cascades = np.concatenate([gen(ninj_c, 2, 1, inra = inj_ra, indec = inj_dec),gen(self.cascade_count, 3.7, 1)])
+    def test_methods(self, ra, dec, ninj_t = 0, ninj_c = 0):
+        tracks = np.concatenate([gen(ninj_t, 2, 0, inra = ra, indec = dec),gen(self.track_count, 3.7, 0)])
+        cascades = np.concatenate([gen(ninj_c, 2, 1, inra = ra, indec = dec),gen(self.cascade_count, 3.7, 1)])
         output = np.zeros(len(self.Methods))
         for i,method in enumerate(self.Methods):
             output[i] = eval(method + '(tracks, cascades, ra, dec)')[0]
         return output
 
-    def create_sky(self, ninj_t = 0, ninj_c = 0, inj_ra = 0, inj_dec = 0, resolution = 8):
-        #resolution of healpy grid
-        NSIDE = 2**8
-        NPIX = hp.nside2npix(NSIDE)
-
+    def create_sky(self, ninj_t = 0, ninj_c = 0, inj_ra = 0, inj_dec = 0):
         #angle array of every point on the sky
-        m = np.arange(NPIX)
-        theta, phi = np.deg2rad(hp.pix2ang(nside=NSIDE, ipix=m, lonlat = True))
-        self.sky = np.zeros([NPIX, len(self.Methods)])
+        m = np.arange(self.NPIX)
+        theta, phi = np.deg2rad(hp.pix2ang(nside=self.NSIDE, ipix=m, lonlat = True))
+        self.sky = np.zeros([self.NPIX, len(self.Methods)])
 
         tracks = np.concatenate([gen(ninj_t, 2, 0, inra = inj_ra, indec = inj_dec),gen(self.track_count, 3.7, 0)])
         cascades = np.concatenate([gen(ninj_c, 2, 1, inra = inj_ra, indec = inj_dec),gen(self.cascade_count, 3.7, 1)])
 
-        for i in tqdm(range((NPIX))):
+        for i in tqdm(range((self.NPIX))):
             for k, method in enumerate(self.Methods):
                 self.sky[i][k] = eval(method + '(tracks, cascades, theta[i], phi[i])')[0]
 

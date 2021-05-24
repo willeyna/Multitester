@@ -2,11 +2,13 @@ NEAR FUTURE TO-DO:
 
 * Change where signal TS dist is being saved to/ called from [X]
 
+* Add declination binning code with scrambling of background testing locations and injection locations within bands [X]
+
+* Allow discontinuous bands [X]
+
+* Change the calculation of sigma to be band dependent [X]
+
 * Add method arg dictionary for passing misc items in [ ]
-
-* Add declination binning code with scrambling of background testing locations and injection locations within bands [ ]
-
-* Change the calculation of sigma to be band dependent [ ]
 
 * Change the way injection amounts are specified [ ]
 
@@ -16,8 +18,10 @@ NEAR FUTURE TO-DO:
 
 LATER VERSIONS: 
 
+* Allow pulling theta, phi from varying distributions [ ]
+
 * Multiple background distributions for one object [ ] 
 
-* Outputs modes
+* Outputs modes [ ]
 
-* Add a path argument to run (for creation of sbatch) (right now you manually set up sbatch)
+* Add a path argument to run (for creation of sbatch) (right now you manually set up sbatch) [ ]
