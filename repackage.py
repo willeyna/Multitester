@@ -31,8 +31,11 @@ for j,fil in enumerate(fils[1:]):
 
 print("sorting data")
 
+decs = []
+for i in range(len(self.Methods)):
+    decs.append(declinations[:,i][outdat[:,i].argsort(axis=0)])
+declinations = np.column_stack(decs)
 outdat.sort(axis=0)
-declinations = declinations[outdat.argsort(axis=0)]
 
 print("packing data")
 
