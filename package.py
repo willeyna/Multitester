@@ -568,16 +568,27 @@ class multi_tester():
         return
 
     """
-    Inputs: Location or TS (bool mode switch)
+    Inputs: TS array of the same shape as self.Methods
     Compares TS against a loaded background the calculate the significance level
+    Must have loaded in the background distribution
     Returns: sigma
     """
-    def calculate_sigma(self, TS, bkg):
-        sig = pd2sig(p_value(TS,bkg))
-        #Placeholder calculation-- figure out a more professional way to deal with overflow
-        if sig == 0:
-            sig=np.infty
-        return sig
+    def calculate_sigma(self, TS, dec):
+
+        #WARNING: I have no idea if this works it has never been tested
+
+        if type(self.bkg) == type(''):
+            raise AttributeError("Load in your TS distributions first.")
+        assert(np.array(TS).shape[0] == len(self.Methods)), "TS input is in the wrong format"
+        sigma = np.zeros(len(self.Methods))
+
+        band = np.argmax(np.array([np.logical_and(dec >= band[0],dec < band[1]) for band in self.dec_bands]))
+        for j in range(len(self.Methods)):
+            #generates the array of every background event in the declination band of the signal trial
+            band_bkg = self.bkg['TS'][:,j][self.bkg['dec'][:,j] >= self.dec_bands[band][0] and self.bkg['dec'][:,j] < self.dec_bands[band][1]]
+            sigma[j] = p_value(TS,band_bkg)
+
+        return pd2sig(sigma)
 
     """
     Inputs: Test specifications
