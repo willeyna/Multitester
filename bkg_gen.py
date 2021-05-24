@@ -18,7 +18,7 @@ bkg_TS.sort(axis = 0);
 
 if tester.signal_trials:
     #compare signal trials to this background sample
-    signal = np.load('./data/'+tester.signal_name)
+    signal = np.load('./data/'+tester.signal)
     signal_TS = signal['TS']
     sig_dec = signal['dec']
 
@@ -41,7 +41,7 @@ if tester.signal_trials:
             psum[i,j] = p_value(signal_TS[i,j],filt_bkg)*filt_bkg.shape[0]
 
             nin_bin[i,j] = filt_bkg.shape[0]
-            
+
     np.savez('./working/'+ tester.name + "_BKG" + tag + ".npz", TS = bkg_TS, dec = declinations, psum = psum, nin_bin = nin_bin, runtime = dt)
 else:
     np.savez('./working/'+ tester.name + "_BKG" + tag + ".npz", TS = bkg_TS, dec = declinations, runtime = dt)

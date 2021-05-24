@@ -2,7 +2,7 @@ from package import *
 
 tester = pickle.load(open('./Testers/' + sys.argv[1],'rb'))
 
-signal = np.load('./data/'+tester.signal_name)
+signal = np.load('./data/'+tester.signal)
 
 pv_sum = np.zeros([tester.signal_trials, len(tester.Methods)])
 total_nin_bin = np.zeros([tester.signal_trials, len(tester.Methods)])
