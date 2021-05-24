@@ -475,7 +475,8 @@ class multi_tester():
             joblist += f'JOB J{i} ./working/{filnam}_{i}.sb\n'
             jstr += f'J{i} '
         joblist += f'JOB R ./working/repack_{filnam}.sb\n'
-        joblist += f'JOB CLEAN ./working/clean_{filnam}.sb\n'
+        if clean:
+            joblist += f'JOB CLEAN ./working/clean_{filnam}.sb\n'
 
         if signal_trials:
             joblist += f'JOB S ./working/signal_{filnam}.sb\n'
