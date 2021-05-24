@@ -32,7 +32,8 @@ for j,fil in enumerate(fils[1:]):
 print("sorting data")
 
 decs = []
-for i in range(len(self.Methods)):
+#there may be a nice vectorized way to handle this, but the 2d arrays make indexing difficult
+for i in range(len(tester.Methods)):
     decs.append(declinations[:,i][outdat[:,i].argsort(axis=0)])
 declinations = np.column_stack(decs)
 outdat.sort(axis=0)
