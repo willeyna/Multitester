@@ -38,7 +38,7 @@ if tester.signal_trials:
         mask = band_masks[np.argmax(signal_masks[:,i])]
         for j in range(len(tester.Methods)):
             #generates the array of every background event in the declination band of the signal trial
-            filt_bkg = bkg_TS[:,j][mask]
+            filt_bkg = bkg_TS[:,j][mask[:,j]]
             psum[i,j] = p_value(signal_TS[i,j],filt_bkg)*filt_bkg.shape[0]
 
             nin_bin[i,j] = filt_bkg.shape[0]
