@@ -360,7 +360,7 @@ class multi_tester():
 
         #resolution of healpy grid
         self.NSIDE = 2**resolution
-        self.NPIX = hp.nside2npix(NSIDE)
+        self.NPIX = hp.nside2npix(self.NSIDE)
         #status on whether the program has been run for this object
         self.ran = False
         return
