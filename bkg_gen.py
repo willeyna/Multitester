@@ -15,6 +15,7 @@ t2= datetime.datetime.now()
 dt=(t2-t1).total_seconds()
 
 bkg_TS.sort(axis = 0);
+declinations = declinations[bkg_TS.argsort(axis=0)]
 
 if tester.signal_trials:
     #compare signal trials to this background sample
