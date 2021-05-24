@@ -27,15 +27,21 @@ if tester.signal_trials:
 
     #counts the number of background events larger than each signal event in this distribution fragment
     psum = np.zeros([tester.signal_trials, len(tester.Methods)])
-    for i in range(len(tester.Methods)):
-        for j,ev in enumerate(signal_TS[:,i]):
-            #pulls current signal event's declination
-            dec = sig_dec[j]
-            #generates the array of every background event in the declination band of the signal trial
-            filt_bkg = bkg_TS[:,i][[np.logical_and(declinations >= band[0],declinations < band[1]) for band in tester.dec_bands if dec >= band[0] and dec < band[1]][0]]
-            psum[j,i] = p_value(ev,filt_bkg)*filt_bkg.shape[0]
 
-            nin_bin[j,i] = filt_bkg.shape[0]
+    band_masks = np.array([np.logical_and(declinations >= band[0],declinations < band[1]) for band in tester.dec_bands])
+    #mask for signal declinations for every band-- used in finding which band each signal event is in
+    signal_masks = np.array([np.logical_and(sig_dec>= band[0],sig_dec < band[1]) for band in tester.dec_bands])
+
+    for i in range(tester.signal_trials):
+        #chooses the right mask for the band of the chosen event
+        mask = band_masks[np.argmax(signal_masks[:,i])]
+        for j in range(len(tester.Methods)):
+            #generates the array of every background event in the declination band of the signal trial
+            filt_bkg = bkg_TS[:,j][mask]
+            psum[i,j] = p_value(signal_TS[i,j],filt_bkg)*filt_bkg.shape[0]
+
+            nin_bin[i,j] = filt_bkg.shape[0]
+            
     np.savez('./working/'+ tester.name + "_BKG" + tag + ".npz", TS = bkg_TS, dec = declinations, psum = psum, nin_bin = nin_bin, runtime = dt)
 else:
     np.savez('./working/'+ tester.name + "_BKG" + tag + ".npz", TS = bkg_TS, dec = declinations, runtime = dt)
