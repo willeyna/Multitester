@@ -195,7 +195,7 @@ def gen(n_Ev, g, topo = 0, inra=None,indec=None):
 # FOR EACH METHOD TO FUNCTION PROPERLY WITH THE HYPOTHESIS TESTING SCRIPTS THEY MUST RETURN TS AS RETURN VALUE [0]
 
 #CLASSIC LLH WITHOUT ENERGY
-def LLH_detector(tracks,cascades, ra, dec, args = args):
+def LLH_detector(tracks,cascades, ra, dec, args):
     evs = np.concatenate([tracks,cascades])
     nev = evs.shape[0]
     B = 1/(4*np.pi)
@@ -212,7 +212,7 @@ def LLH_detector(tracks,cascades, ra, dec, args = args):
     return TS, n_sig
 
 
-def SMTopoAw(tracks, cascades, ra, dec, args = args):
+def SMTopoAw(tracks, cascades, ra, dec, args):
 
     if "Sigmoid" in args:
         a,c = args['Sigmoid'][0], args['Sigmoid'][1]
@@ -238,7 +238,7 @@ def SMTopoAw(tracks, cascades, ra, dec, args = args):
 
     return TS, injected
 
-def Cascade_Filter(tracks, cascades, ra, dec, args = args):
+def Cascade_Filter(tracks, cascades, ra, dec, args):
     ntrack = tracks.shape[0]
     B = 1/(4*np.pi)
 
@@ -256,7 +256,7 @@ def Cascade_Filter(tracks, cascades, ra, dec, args = args):
     return TS, PRIOR
 
 # DIFFERENT VARIENT ON CLASSIC LLH (DESCRIBED IN AN OLD POWERPOINT IN MSU ICECUBE DRIVE)
-def RLLH(tracks,cascades,ra,dec, args = args):
+def RLLH(tracks,cascades,ra,dec, args):
     evs = np.concatenate([tracks,cascades])
 
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
@@ -271,7 +271,7 @@ def RLLH(tracks,cascades,ra,dec, args = args):
     return TS, ns
 
 # ROB'S MULTIMAP METHOD WITHOUT Energy
-def MM(tracks, cascades, ra = 45, dec = 60, args = args):
+def MM(tracks, cascades, ra, dec, args):
     St =  evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']], [ra,dec])
     Sc = evPSFd([cascades['ra'],cascades['dec'],cascades['angErr']], [ra,dec])
     TS = (np.sum(St)/tracks.shape[0]) * (np.sum(Sc) / cascades.shape[0])
@@ -292,7 +292,7 @@ def TCP(tracks, cascades, ra = 45, dec = 60, args = args):
     return TS, prior, [nst,nsc], TS0
 
 # runs LLH_detector 3 times per function run. Time should go as 3t?
-def TruePrior(tracks, cascades, ra, dec, args = args):
+def TruePrior(tracks, cascades, ra, dec, args):
     if 'Prior' in args:
         TC = args['Prior']
 
@@ -321,7 +321,7 @@ def TruePrior(tracks, cascades, ra, dec, args = args):
 
     return np.exp(maxllh - offset),
 
-def LLH_detector0(evs, ra, dec, args = args):
+def LLH_detector0(evs, ra, dec, args):
     nev = evs.shape[0]
     ns = np.arange(0,nev)
     B = 1/(4*np.pi)
