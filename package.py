@@ -353,7 +353,7 @@ class multi_tester():
     '''
     def __init__(self, methods, tracks, cascades, resolution = 8, dec_bands = np.column_stack([np.arange(-90,90,10),np.arange(-80,100,10)]), args = dict()):
 
-        if type(arg) != dict:
+        if type(args) != dict:
             raise ValueError("args should be a dictionary of values to pass to the method functions.")
         self.args = args
 
