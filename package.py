@@ -20,30 +20,23 @@ params = np.array([[ 7.83668562e+13, -2.29461080e+00],
 # MISC UTILITY FUNCTIONS ---
 
 def bisection(array,value):
-    '''
-    Bisecting sort algorithm for signifigance calculations
-
-    Given an ``array`` , and given a ``value`` , returns an index j such that ``value`` is between array[j]
-    and array[j+1]. ``array`` must be monotonic increasing. j=-1 or j=len(array) is returned
-    to indicate that ``value`` is out of range below and above respectively.'''
     n = len(array)
     if (value < array[0]):
         return -1
     elif (value > array[n-1]):
         return n
 
-    jl = 0# Initialize lower
-    ju = n-1# and upper limits.
-    while (ju-jl > 1):# If we are not yet done,
-        jm=(ju+jl) >> 1# compute a midpoint with a bitshift
+    jl = 0
+    ju = n-1
+    while (ju-jl > 1):
+        jm=(ju+jl)
         if (value >= array[jm]):
-            jl=jm# and replace either the lower limit
+            jl=jm
         else:
-            ju=jm# or the upper limit, as appropriate.
-        # Repeat until the test condition is satisfied.
-    if (value == array[0]):# edge cases at bottom
+            ju=jm
+    if (value == array[0]):
         return 0
-    elif (value == array[n-1]):# and top
+    elif (value == array[n-1]):
         return n-1
     else:
         return jl
@@ -202,7 +195,7 @@ def gen(n_Ev, g, topo = 0, inra=None,indec=None):
 # FOR EACH METHOD TO FUNCTION PROPERLY WITH THE HYPOTHESIS TESTING SCRIPTS THEY MUST RETURN TS AS RETURN VALUE [0]
 
 #CLASSIC LLH WITHOUT ENERGY
-def LLH_detector(tracks,cascades, ra, dec):
+def LLH_detector(tracks,cascades, ra, dec, args = args):
     evs = np.concatenate([tracks,cascades])
     nev = evs.shape[0]
     B = 1/(4*np.pi)
@@ -219,7 +212,13 @@ def LLH_detector(tracks,cascades, ra, dec):
     return TS, n_sig
 
 
-def SMTopoAw(tracks, cascades, ra, dec):
+def SMTopoAw(tracks, cascades, ra, dec, args = args):
+
+    if "Sigmoid" in args:
+        a,c = args['Sigmoid'][0], args['Sigmoid'][1]
+    else:
+        a,c = 0.5, 2.2
+
     evs = np.concatenate([tracks,cascades])
     fS = PercentE(evs['logE'],evs['topo'], True)
     fB = PercentE(evs['logE'],evs['topo'], False)
@@ -239,7 +238,7 @@ def SMTopoAw(tracks, cascades, ra, dec):
 
     return TS, injected
 
-def Cascade_Filter(tracks, cascades, ra, dec):
+def Cascade_Filter(tracks, cascades, ra, dec, args = args):
     ntrack = tracks.shape[0]
     B = 1/(4*np.pi)
 
@@ -257,7 +256,7 @@ def Cascade_Filter(tracks, cascades, ra, dec):
     return TS, PRIOR
 
 # DIFFERENT VARIENT ON CLASSIC LLH (DESCRIBED IN AN OLD POWERPOINT IN MSU ICECUBE DRIVE)
-def RLLH(tracks,cascades,ra,dec):
+def RLLH(tracks,cascades,ra,dec, args = args):
     evs = np.concatenate([tracks,cascades])
 
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
@@ -272,7 +271,7 @@ def RLLH(tracks,cascades,ra,dec):
     return TS, ns
 
 # ROB'S MULTIMAP METHOD WITHOUT Energy
-def MM(tracks, cascades, ra = 45, dec = 60):
+def MM(tracks, cascades, ra = 45, dec = 60, args = args):
     St =  evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']], [ra,dec])
     Sc = evPSFd([cascades['ra'],cascades['dec'],cascades['angErr']], [ra,dec])
     TS = (np.sum(St)/tracks.shape[0]) * (np.sum(Sc) / cascades.shape[0])
@@ -280,7 +279,10 @@ def MM(tracks, cascades, ra = 45, dec = 60):
 
 # TOPOLOGY RATIO PRIOR APPLIED
 # THIS VERSION DOES NOT USE knn FOR  SIGNAL COUNT; USES LLH MAXIMIZER
-def TCP(tracks, cascades, ra = 45, dec = 60):
+def TCP(tracks, cascades, ra = 45, dec = 60, args = args):
+    if 'Prior' in args:
+        TC = args['Prior']
+
     nsc = int(round(LLH_detector0(cascades, ra, dec)[1]))
     nst = int(round(LLH_detector0(tracks, ra, dec)[1]))
     prior = TC[nst,nsc]
@@ -290,7 +292,10 @@ def TCP(tracks, cascades, ra = 45, dec = 60):
     return TS, prior, [nst,nsc], TS0
 
 # runs LLH_detector 3 times per function run. Time should go as 3t?
-def TruePrior(tracks, cascades, ra, dec, TC=TC):
+def TruePrior(tracks, cascades, ra, dec, args = args):
+    if 'Prior' in args:
+        TC = args['Prior']
+
     evs = np.concatenate([tracks,cascades])
     nev = evs.shape[0]
 
@@ -316,7 +321,7 @@ def TruePrior(tracks, cascades, ra, dec, TC=TC):
 
     return np.exp(maxllh - offset),
 
-def LLH_detector0(evs, ra, dec):
+def LLH_detector0(evs, ra, dec, args = args):
     nev = evs.shape[0]
     ns = np.arange(0,nev)
     B = 1/(4*np.pi)
@@ -335,7 +340,22 @@ def LLH_detector0(evs, ra, dec):
 
 class multi_tester():
 
-    def __init__(self, methods, tracks, cascades, resolution = 8, dec_bands = np.column_stack([np.arange(-90,90,10),np.arange(-80,100,10)])):
+    '''
+    methods: list of ps method names as strings
+    tracks: int # background tracks
+    cascades: int # background cascades
+    resolution: int healpy grid resolution (NPIX = 2**resolution)
+    dec_bands: list or array of dec bands [min,max] for which to test events in (Cannot overlap)
+    args: A dictionary used to pass information to the methods. Keys are method specific strings (ex: 'Prior' to pass in a TC prior).
+                values vary depending on method.
+
+    Takes in the above arguments, checks to make sure they're of the right form, and initializes the object
+    '''
+    def __init__(self, methods, tracks, cascades, resolution = 8, dec_bands = np.column_stack([np.arange(-90,90,10),np.arange(-80,100,10)]), args = dict()):
+
+        if type(arg) != dict:
+            raise ValueError("args should be a dictionary of values to pass to the method functions.")
+        self.args = args
 
         #test of user inputted bands
         #this test allows for discontinuous bands, but checks to make sure there is no overlap between declination bands
@@ -360,7 +380,7 @@ class multi_tester():
 
         #resolution of healpy grid
         self.NSIDE = 2**resolution
-        self.NPIX = hp.nside2npix(self.NSIDE)
+        self.NPIX = hp.nside2npix(NSIDE)
         #status on whether the program has been run for this object
         self.ran = False
         return
@@ -540,7 +560,7 @@ class multi_tester():
         cascades = np.concatenate([gen(ninj_c, 2, 1, inra = ra, indec = dec),gen(self.cascade_count, 3.7, 1)])
         output = np.zeros(len(self.Methods))
         for i,method in enumerate(self.Methods):
-            output[i] = eval(method + '(tracks, cascades, ra, dec)')[0]
+            output[i] = eval(method + '(tracks, cascades, ra, dec, args = self.args)')[0]
         return output
 
     def create_sky(self, ninj_t = 0, ninj_c = 0, inj_ra = 0, inj_dec = 0):
