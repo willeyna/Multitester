@@ -8,6 +8,7 @@ import glob
 import os
 from scipy.optimize import minimize
 from scipy.special import factorial
+from bisect import bisect
 from tqdm import tqdm
 import pickle
 
@@ -18,28 +19,6 @@ params = np.array([[ 7.83668562e+13, -2.29461080e+00],
                    [ 9.97827439e+04, -5.66062064e-01]])
 
 # MISC UTILITY FUNCTIONS ---
-
-def bisection(array,value):
-    n = len(array)
-    if (value < array[0]):
-        return -1
-    elif (value > array[n-1]):
-        return n
-
-    jl = 0
-    ju = n-1
-    while (ju-jl > 1):
-        jm=(ju+jl)
-        if (value >= array[jm]):
-            jl=jm
-        else:
-            ju=jm
-    if (value == array[0]):
-        return 0
-    elif (value == array[n-1]):
-        return n-1
-    else:
-        return jl
 
 #used in kent dist; spherical dot product
 def sph_dot(th1,th2,phi1,phi2):
@@ -72,29 +51,27 @@ def pd2sig(p):
 
 #p-value with bisecting sort algo.
 def p_value(x, bkg):
-    ##bisection sorting
-    j = bisection(bkg,x)
-    #all edge cases are handled inside the bisection function
-    #returns 0 if none are above as it should
-    return bkg[j+1:].shape[0]/ bkg.shape[0]
+    ##bisection sorting for speed
+    j = bisect(bkg,x)
+    return bkg[j:].shape[0]/ bkg.shape[0]
 
 def sigmoid(x, c = 3, a =.5):
     return 1 / (1 + np.exp(-c * (x - a)))
 
-#size := max number
-size = 30
-CTR = 2
-
-TCT, TCC = np.zeros([size+1,size+1]),np.zeros([size+1,size+1])
-for i in range(1, size):
-    TCC[:,i] = poisson(i/CTR, np.linspace(0,size,size+1))
-    TCT[i,:] = poisson(i*CTR, np.linspace(0,size,size+1))
-TC = (TCT + TCC)
-for i in range(TC.shape[0]):
-    for j in range(TC.shape[0]):
-        TC[i,j] *= (j+i)
-TC[0,0] = 1e-20
-TC /= np.sum(TC)
+# #size := max number
+# size = 30
+# CTR = 2
+#
+# TCT, TCC = np.zeros([size+1,size+1]),np.zeros([size+1,size+1])
+# for i in range(1, size):
+#     TCC[:,i] = poisson(i/CTR, np.linspace(0,size,size+1))
+#     TCT[i,:] = poisson(i*CTR, np.linspace(0,size,size+1))
+# TC = (TCT + TCC)
+# for i in range(TC.shape[0]):
+#     for j in range(TC.shape[0]):
+#         TC[i,j] *= (j+i)
+# TC[0,0] = 1e-20
+# TC /= np.sum(TC)
 
 ####################################################################################
 
@@ -380,7 +357,7 @@ class multi_tester():
 
         #resolution of healpy grid
         self.NSIDE = 2**resolution
-        self.NPIX = hp.nside2npix(NSIDE)
+        self.NPIX = hp.nside2npix(self.NSIDE)
         #status on whether the program has been run for this object
         self.ran = False
         return
@@ -518,7 +495,6 @@ class multi_tester():
         signal_filename = 'multitester_' + self.timetag + "_SIGNAL.npz"
 
         self.bkg = bkg_filename
-        self.signal = signal_filename
         self.ran = True
 
         #saves this object in a pkl file to be read in by other scripts
@@ -540,10 +516,8 @@ class multi_tester():
     def load_TS(self):
         try:
             bkg_dist = np.load("./data/"+self.bkg)
-            signal_dist = np.load("./data/"+self.signal)
-            print("Background and signal trial files successfully loaded into .bkg and .signal")
+            print("Background file successfully loaded into .bkg")
             self.bkg = bkg_dist
-            self.signal = signal_dist
             return
         except:
             raise EnvironmentError('Is the background file missing/ created yet?')
@@ -594,18 +568,14 @@ class multi_tester():
     Returns: sigma
     """
     def calculate_sigma(self, TS, dec):
-
-        #WARNING: I have no idea if this works it has never been tested
-
         if type(self.bkg) == type(''):
             raise AttributeError("Load in your TS distributions first.")
-        assert(np.array(TS).shape[0] == len(self.Methods)), "TS input is in the wrong format"
         sigma = np.zeros(len(self.Methods))
 
         band = np.argmax(np.array([np.logical_and(dec >= band[0],dec < band[1]) for band in self.dec_bands]))
         for j in range(len(self.Methods)):
             #generates the array of every background event in the declination band of the signal trial
-            band_bkg = self.bkg['TS'][:,j][self.bkg['dec'][:,j] >= self.dec_bands[band][0] and self.bkg['dec'][:,j] < self.dec_bands[band][1]]
+            band_bkg = self.bkg['TS'][:,j][np.logical_and(self.bkg['dec'][:,j] >= self.dec_bands[band][0],self.bkg['dec'][:,j] < self.dec_bands[band][1])]
             sigma[j] = p_value(TS,band_bkg)
 
         return pd2sig(sigma)
@@ -633,3 +603,23 @@ class multi_tester():
         if printout:
             print(np.sum(times), np.mean(times), times)
         return np.sum(times), np.mean(times), times
+
+    def TC_space(self, ntrials, dec, size = 10, progress = False):
+
+    space = np.zeros([size,size])
+
+    #TC space signifigance comparison
+    for ninj_t in range(size):
+        for ninj_c in range(size):
+
+            sigs = np.zeros(ntrials)
+            for i in range(ntrials):
+                ra = np.random.uniform(0, 2*np.pi)
+                TS = self.test_methods(ra, dec, ninj_t, ninj_c)
+                sigs[i] = self.calculate_sigma(TS, dec)
+            space[ninj_t, ninj_c] = np.sum([sigs >= 5])/ntrials
+
+            if progress:
+                print(f"{ninj_t}.{ninj_c//size}/{size}", end = '\r')
+
+    return space
