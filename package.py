@@ -318,12 +318,12 @@ def LLH_detector0(evs, ra, dec):
 class multi_tester():
 
     '''
-    methods: list of ps method names as strings
-    tracks: int # background tracks
-    cascades: int # background cascades
-    resolution: int healpy grid resolution (NPIX = 2**resolution)
-    dec_bands: list or array of dec bands [min,max] for which to test events in (Cannot overlap)
-    args: A dictionary used to pass information to the methods. Keys are method specific strings (ex: 'Prior' to pass in a TC prior).
+    methods: [list] Consist of method names as strings (Written exactly as they appear in package)
+    tracks: [int] # background tracks
+    cascades: [int] # background cascades
+    resolution: [int] Healpy grid resolution (NPIX = 2**resolution)
+    dec_bands: [list/array] Dec bands [min,max] for which to test events in (Cannot overlap)
+    args: [dict] Used to pass information to the methods. Keys are method specific strings (ex: 'Prior' to pass in a TC prior).
                 values vary depending on method.
 
     Takes in the above arguments, checks to make sure they're of the right form, and initializes the object
@@ -372,13 +372,19 @@ class multi_tester():
         return desc
 
     '''
-    Inputs: # of trials, # of files to split into, runtime for each file
-            injection counts, injection angle,
-    Writes sb files for each event, repackage sb, and the sdag to control them-- runs these
-    Returns: Background filename, Significances filename
+    bkg_trials: [int] Total number of trials that will make up the background distribution
+    filecount: [int] Number of files to split bkg creation into
+    runtime: [str (hr:min:sec)] Time allocation for each file
+    mem: [str (ex '50GB')] Memory allocation for each file
+    signal_trials: [int] Number of signal trials to calculate significances for
+    ninj_tracks, ninj_cascades: [int] Number of each topology to inject as a source for signal bkg_trials
+    outpath: [str] Path to store data in (Default ./results/)
+    clean: [bool] Toggles whether or not the middle files are deleted after the data is repackaged
+    dryrun: [bool] Toggles whether or not the files are automatically run or not
 
-    Both the background TS distribution creation and an array of significances tested against the background
-    Choose so many things in this function
+    If signal trials are specified creates the signal and background TS distributions and tests signal trials
+        in order to calculate significances.
+    Creates background TS, signal TS, and significances files in the specified outpath
     '''
     def run(self, bkg_trials, filecount, runtime, mem = '50G', signal_trials = 0, ninj_tracks = 0, ninj_cascades = 0, outpath = './results/', clean = True, dryrun = False):
 
@@ -510,8 +516,9 @@ class multi_tester():
 
 
     '''
-    Inputs: None
-    Returns: BKG dist numpy array, SIGNAL dist numpy array
+    Run this after the BKG creation process is finished.
+    Loads in the background TS distribution created with run() into self.bkg
+    TS can then be found with self.bkg['TS']
     '''
     def load_TS(self):
         try:
@@ -524,10 +531,13 @@ class multi_tester():
 
 
     """
-    Inputs: Injection information, and point on the sky
+    ra: [float] Right ascension to test the methods at[0, 2pi]
+    dec: [float] Declination to test the methods at [pi/2, pi/2]
+    ninj_t, ninj_c: [int] Number of tracks and cascades to inject as a source at the given ra, dec
+
     Creates a MC sky according to specs in object and evaluates each method at a given point in the sky
     If an event is injected, always tests on injection ra and declination
-    Returns: Array of TS for each method
+    Returns: Array with TS for each method
     """
     def test_methods(self, ra, dec, ninj_t = 0, ninj_c = 0):
         tracks = np.concatenate([gen(ninj_t, 2, 0, inra = ra, indec = dec),gen(self.track_count, 3.7, 0)])
@@ -537,6 +547,14 @@ class multi_tester():
             output[i] = eval(method + '(tracks, cascades, ra, dec, args = self.args)')[0]
         return output
 
+    '''
+    ninj_t, ninj_c: [int] Number of tracks and cascades to inject as a source at the given inj_ra, inj_dec
+    inj_ra, inj_dec: [float] Right ascension/ Declination to inject the source at
+
+    Creates a healpy sky with the object's track, cascade number and optional injection. Tests each method at every
+        point in the sky to give a visual for the methods' performances.
+    TS sky array is saved in self.sky and can be shown using show_sky
+    '''
     def create_sky(self, ninj_t = 0, ninj_c = 0, inj_ra = 0, inj_dec = 0):
         #angle array of every point on the sky
         m = np.arange(self.NPIX)
@@ -552,20 +570,22 @@ class multi_tester():
 
         return self.sky
 
-    def show_sky(self, show = False):
+    '''
+    Saves a mollwide view of each method's TS sky in ./plots
+    '''
+    def show_sky(self):
         for i in range(self.sky.shape[1]):
             hp.mollview(self.sky[:,i])
-            if show:
-                plt.show()
-            else:
-                plt.savefig('./plots/SKY' + self.name+ self.Methods[i])
+            plt.savefig('./plots/SKY' + self.name+ self.Methods[i])
         return
 
     """
-    Inputs: TS array of the same shape as self.Methods
+    TS: [list/array] Test statistics for each method to calculate significances for in comparison to self.bkg
+    dec: [list/array] Declinations of the given Test statistics
+
     Compares TS against a loaded background the calculate the significance level
-    Must have loaded in the background distribution
-    Returns: sigma
+    *Must have loaded in the background distribution*
+    Returns: Significance array
     """
     def calculate_sigma(self, TS, dec):
         TS = np.array(TS).reshape(-1)
@@ -583,6 +603,7 @@ class multi_tester():
         return pd2sig(sigma)
 
     """
+    WIP Benchmarking function----
     Inputs: Test specifications
     Runs background trials on the HPCC (not yet in a job) for the method and prints out
     all the useful benchmarking info one would need to calculate the stuff for background files
@@ -607,11 +628,11 @@ class multi_tester():
         return np.sum(times), np.mean(times), times
 
     '''
-    ntrials: int Number of trials to run at each injection combination
-    dec: float Declination to test at [-np.pi/2, np.pi/2]
-    size: int Max ninj_t and ninj_c to test at
-    progress: bool Toggles whether progress is printed out
-    plt: bool Toggles whether or not the TC space is plotted and saved
+    ntrials: [int] Number of trials to run at each injection combination
+    dec: [float] Declination to test at [-np.pi/2, np.pi/2]
+    size: [int] Max ninj_t and ninj_c to test at
+    progress: [bool] Toggles whether progress is printed out
+    plt: [bool] Toggles whether or not the TC space is plotted and saved
 
     Tests each method at all injection combinations within [size,size] and returns an array of the percent of
         events that measure above 5sigma
