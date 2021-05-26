@@ -8,11 +8,12 @@ NEAR FUTURE TO-DO:
 
 * Change the calculation of sigma to be band dependent [X]
 
-* Add method arg dictionary for passing misc items in [ ]
+* Add method arg dictionary for passing misc items in [X]
+
+* TC plots, contours, and sensitivity [ ]
 
 * Change the way injection amounts are specified [ ]
 
-* TC plots, contours, and sensitivity [ ]
 
 
 

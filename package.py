@@ -8,6 +8,7 @@ import glob
 import os
 from scipy.optimize import minimize
 from scipy.special import factorial
+from bisect import bisect
 from tqdm import tqdm
 import pickle
 
@@ -18,28 +19,6 @@ params = np.array([[ 7.83668562e+13, -2.29461080e+00],
                    [ 9.97827439e+04, -5.66062064e-01]])
 
 # MISC UTILITY FUNCTIONS ---
-
-def bisection(array,value):
-    n = len(array)
-    if (value < array[0]):
-        return -1
-    elif (value > array[n-1]):
-        return n
-
-    jl = 0
-    ju = n-1
-    while (ju-jl > 1):
-        jm=(ju+jl)
-        if (value >= array[jm]):
-            jl=jm
-        else:
-            ju=jm
-    if (value == array[0]):
-        return 0
-    elif (value == array[n-1]):
-        return n-1
-    else:
-        return jl
 
 #used in kent dist; spherical dot product
 def sph_dot(th1,th2,phi1,phi2):
@@ -72,29 +51,27 @@ def pd2sig(p):
 
 #p-value with bisecting sort algo.
 def p_value(x, bkg):
-    ##bisection sorting
-    j = bisection(bkg,x)
-    #all edge cases are handled inside the bisection function
-    #returns 0 if none are above as it should
-    return bkg[j+1:].shape[0]/ bkg.shape[0]
+    ##bisection sorting for speed
+    j = bisect(bkg,x)
+    return bkg[j:].shape[0]/ bkg.shape[0]
 
 def sigmoid(x, c = 3, a =.5):
     return 1 / (1 + np.exp(-c * (x - a)))
 
-#size := max number
-size = 30
-CTR = 2
-
-TCT, TCC = np.zeros([size+1,size+1]),np.zeros([size+1,size+1])
-for i in range(1, size):
-    TCC[:,i] = poisson(i/CTR, np.linspace(0,size,size+1))
-    TCT[i,:] = poisson(i*CTR, np.linspace(0,size,size+1))
-TC = (TCT + TCC)
-for i in range(TC.shape[0]):
-    for j in range(TC.shape[0]):
-        TC[i,j] *= (j+i)
-TC[0,0] = 1e-20
-TC /= np.sum(TC)
+# #size := max number
+# size = 30
+# CTR = 2
+#
+# TCT, TCC = np.zeros([size+1,size+1]),np.zeros([size+1,size+1])
+# for i in range(1, size):
+#     TCC[:,i] = poisson(i/CTR, np.linspace(0,size,size+1))
+#     TCT[i,:] = poisson(i*CTR, np.linspace(0,size,size+1))
+# TC = (TCT + TCC)
+# for i in range(TC.shape[0]):
+#     for j in range(TC.shape[0]):
+#         TC[i,j] *= (j+i)
+# TC[0,0] = 1e-20
+# TC /= np.sum(TC)
 
 ####################################################################################
 
@@ -341,12 +318,12 @@ def LLH_detector0(evs, ra, dec):
 class multi_tester():
 
     '''
-    methods: list of ps method names as strings
-    tracks: int # background tracks
-    cascades: int # background cascades
-    resolution: int healpy grid resolution (NPIX = 2**resolution)
-    dec_bands: list or array of dec bands [min,max] for which to test events in (Cannot overlap)
-    args: A dictionary used to pass information to the methods. Keys are method specific strings (ex: 'Prior' to pass in a TC prior).
+    methods: [list] Consist of method names as strings (Written exactly as they appear in package)
+    tracks: [int] # background tracks
+    cascades: [int] # background cascades
+    resolution: [int] Healpy grid resolution (NPIX = 2**resolution)
+    dec_bands: [list/array] Dec bands [min,max] for which to test events in (Cannot overlap)
+    args: [dict] Used to pass information to the methods. Keys are method specific strings (ex: 'Prior' to pass in a TC prior).
                 values vary depending on method.
 
     Takes in the above arguments, checks to make sure they're of the right form, and initializes the object
@@ -395,13 +372,19 @@ class multi_tester():
         return desc
 
     '''
-    Inputs: # of trials, # of files to split into, runtime for each file
-            injection counts, injection angle,
-    Writes sb files for each event, repackage sb, and the sdag to control them-- runs these
-    Returns: Background filename, Significances filename
+    bkg_trials: [int] Total number of trials that will make up the background distribution
+    filecount: [int] Number of files to split bkg creation into
+    runtime: [str (hr:min:sec)] Time allocation for each file
+    mem: [str (ex '50GB')] Memory allocation for each file
+    signal_trials: [int] Number of signal trials to calculate significances for
+    ninj_tracks, ninj_cascades: [int] Number of each topology to inject as a source for signal bkg_trials
+    outpath: [str] Path to store data in (Default ./results/)
+    clean: [bool] Toggles whether or not the middle files are deleted after the data is repackaged
+    dryrun: [bool] Toggles whether or not the files are automatically run or not
 
-    Both the background TS distribution creation and an array of significances tested against the background
-    Choose so many things in this function
+    If signal trials are specified creates the signal and background TS distributions and tests signal trials
+        in order to calculate significances.
+    Creates background TS, signal TS, and significances files in the specified outpath
     '''
     def run(self, bkg_trials, filecount, runtime, mem = '50G', signal_trials = 0, ninj_tracks = 0, ninj_cascades = 0, outpath = './results/', clean = True, dryrun = False):
 
@@ -518,7 +501,6 @@ class multi_tester():
         signal_filename = 'multitester_' + self.timetag + "_SIGNAL.npz"
 
         self.bkg = bkg_filename
-        self.signal = signal_filename
         self.ran = True
 
         #saves this object in a pkl file to be read in by other scripts
@@ -534,26 +516,28 @@ class multi_tester():
 
 
     '''
-    Inputs: None
-    Returns: BKG dist numpy array, SIGNAL dist numpy array
+    Run this after the BKG creation process is finished.
+    Loads in the background TS distribution created with run() into self.bkg
+    TS can then be found with self.bkg['TS']
     '''
     def load_TS(self):
         try:
             bkg_dist = np.load("./data/"+self.bkg)
-            signal_dist = np.load("./data/"+self.signal)
-            print("Background and signal trial files successfully loaded into .bkg and .signal")
+            print("Background file successfully loaded into .bkg")
             self.bkg = bkg_dist
-            self.signal = signal_dist
             return
         except:
             raise EnvironmentError('Is the background file missing/ created yet?')
 
 
     """
-    Inputs: Injection information, and point on the sky
+    ra: [float] Right ascension to test the methods at[0, 2pi]
+    dec: [float] Declination to test the methods at [pi/2, pi/2]
+    ninj_t, ninj_c: [int] Number of tracks and cascades to inject as a source at the given ra, dec
+
     Creates a MC sky according to specs in object and evaluates each method at a given point in the sky
     If an event is injected, always tests on injection ra and declination
-    Returns: Array of TS for each method
+    Returns: Array with TS for each method
     """
     def test_methods(self, ra, dec, ninj_t = 0, ninj_c = 0):
         tracks = np.concatenate([gen(ninj_t, 2, 0, inra = ra, indec = dec),gen(self.track_count, 3.7, 0)])
@@ -563,6 +547,14 @@ class multi_tester():
             output[i] = eval(method + '(tracks, cascades, ra, dec, args = self.args)')[0]
         return output
 
+    '''
+    ninj_t, ninj_c: [int] Number of tracks and cascades to inject as a source at the given inj_ra, inj_dec
+    inj_ra, inj_dec: [float] Right ascension/ Declination to inject the source at
+
+    Creates a healpy sky with the object's track, cascade number and optional injection. Tests each method at every
+        point in the sky to give a visual for the methods' performances.
+    TS sky array is saved in self.sky and can be shown using show_sky
+    '''
     def create_sky(self, ninj_t = 0, ninj_c = 0, inj_ra = 0, inj_dec = 0):
         #angle array of every point on the sky
         m = np.arange(self.NPIX)
@@ -578,39 +570,40 @@ class multi_tester():
 
         return self.sky
 
-    def show_sky(self, show = False):
+    '''
+    Saves a mollwide view of each method's TS sky in ./plots
+    '''
+    def show_sky(self):
         for i in range(self.sky.shape[1]):
             hp.mollview(self.sky[:,i])
-            if show:
-                plt.show()
-            else:
-                plt.savefig('./plots/' + self.name+ self.Methods[i])
+            plt.savefig('./plots/SKY' + self.name+ self.Methods[i])
         return
 
     """
-    Inputs: TS array of the same shape as self.Methods
+    TS: [list/array] Test statistics for each method to calculate significances for in comparison to self.bkg
+    dec: [list/array] Declinations of the given Test statistics
+
     Compares TS against a loaded background the calculate the significance level
-    Must have loaded in the background distribution
-    Returns: sigma
+    *Must have loaded in the background distribution*
+    Returns: Significance array
     """
     def calculate_sigma(self, TS, dec):
-
-        #WARNING: I have no idea if this works it has never been tested
+        TS = np.array(TS).reshape(-1)
 
         if type(self.bkg) == type(''):
             raise AttributeError("Load in your TS distributions first.")
-        assert(np.array(TS).shape[0] == len(self.Methods)), "TS input is in the wrong format"
         sigma = np.zeros(len(self.Methods))
 
         band = np.argmax(np.array([np.logical_and(dec >= band[0],dec < band[1]) for band in self.dec_bands]))
         for j in range(len(self.Methods)):
             #generates the array of every background event in the declination band of the signal trial
-            band_bkg = self.bkg['TS'][:,j][self.bkg['dec'][:,j] >= self.dec_bands[band][0] and self.bkg['dec'][:,j] < self.dec_bands[band][1]]
-            sigma[j] = p_value(TS,band_bkg)
+            band_bkg = self.bkg['TS'][:,j][np.logical_and(self.bkg['dec'][:,j] >= self.dec_bands[band][0],self.bkg['dec'][:,j] < self.dec_bands[band][1])]
+            sigma[j] = p_value(TS[j],band_bkg)
 
         return pd2sig(sigma)
 
     """
+    WIP Benchmarking function----
     Inputs: Test specifications
     Runs background trials on the HPCC (not yet in a job) for the method and prints out
     all the useful benchmarking info one would need to calculate the stuff for background files
@@ -633,3 +626,40 @@ class multi_tester():
         if printout:
             print(np.sum(times), np.mean(times), times)
         return np.sum(times), np.mean(times), times
+
+    '''
+    ntrials: [int] Number of trials to run at each injection combination
+    dec: [float] Declination to test at [-np.pi/2, np.pi/2]
+    size: [int] Max ninj_t and ninj_c to test at
+    progress: [bool] Toggles whether progress is printed out
+    plt: [bool] Toggles whether or not the TC space is plotted and saved
+
+    Tests each method at all injection combinations within [size,size] and returns an array of the percent of
+        events that measure above 5sigma
+    '''
+    def TC_space(self, ntrials, dec, size = 10, progress = False, plot = False):
+
+        space = np.zeros([size,size, len(self.Methods)])
+
+        #TC space signifigance comparison
+        for ninj_t in range(size):
+            for ninj_c in range(size):
+
+                sigs = np.zeros([ntrials, len(self.Methods)])
+                for i in range(ntrials):
+                    ra = np.random.uniform(0, 2*np.pi)
+                    TS = self.test_methods(ra, dec, ninj_t, ninj_c)
+                    sigs[i] = self.calculate_sigma(TS, dec)
+                space[ninj_t, ninj_c] = np.sum([sigs >= 5], axis = 1)/ntrials
+
+                if progress:
+                    print(f"{ninj_t}.{int(10*ninj_c/size)}/{size}", end = '\r')
+        if plot:
+            for k in range(len(self.Methods)):
+                plt.contourf(space[:,:,k], origin = 'lower')
+                plt.xlabel("Injected Tracks")
+                plt.ylabel("Injected Cascades")
+                plt.title("Sensitivity for Topologically Varied Injections")
+                plt.savefig('./plots/TC_SPACE_' + self.name + '_' + self.Methods[k])
+
+        return space
