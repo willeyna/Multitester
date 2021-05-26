@@ -558,7 +558,7 @@ class multi_tester():
             if show:
                 plt.show()
             else:
-                plt.savefig('./plots/' + self.name+ self.Methods[i])
+                plt.savefig('./plots/SKY' + self.name+ self.Methods[i])
         return
 
     """
@@ -568,6 +568,8 @@ class multi_tester():
     Returns: sigma
     """
     def calculate_sigma(self, TS, dec):
+        TS = np.array(TS).reshape(-1)
+
         if type(self.bkg) == type(''):
             raise AttributeError("Load in your TS distributions first.")
         sigma = np.zeros(len(self.Methods))
@@ -576,7 +578,7 @@ class multi_tester():
         for j in range(len(self.Methods)):
             #generates the array of every background event in the declination band of the signal trial
             band_bkg = self.bkg['TS'][:,j][np.logical_and(self.bkg['dec'][:,j] >= self.dec_bands[band][0],self.bkg['dec'][:,j] < self.dec_bands[band][1])]
-            sigma[j] = p_value(TS,band_bkg)
+            sigma[j] = p_value(TS[j],band_bkg)
 
         return pd2sig(sigma)
 
@@ -604,22 +606,39 @@ class multi_tester():
             print(np.sum(times), np.mean(times), times)
         return np.sum(times), np.mean(times), times
 
-    def TC_space(self, ntrials, dec, size = 10, progress = False):
+    '''
+    ntrials: int Number of trials to run at each injection combination
+    dec: float Declination to test at [-np.pi/2, np.pi/2]
+    size: int Max ninj_t and ninj_c to test at
+    progress: bool Toggles whether progress is printed out
+    plt: bool Toggles whether or not the TC space is plotted and saved
 
-    space = np.zeros([size,size])
+    Tests each method at all injection combinations within [size,size] and returns an array of the percent of
+        events that measure above 5sigma
+    '''
+    def TC_space(self, ntrials, dec, size = 10, progress = False, plot = False):
 
-    #TC space signifigance comparison
-    for ninj_t in range(size):
-        for ninj_c in range(size):
+        space = np.zeros([size,size, len(self.Methods)])
 
-            sigs = np.zeros(ntrials)
-            for i in range(ntrials):
-                ra = np.random.uniform(0, 2*np.pi)
-                TS = self.test_methods(ra, dec, ninj_t, ninj_c)
-                sigs[i] = self.calculate_sigma(TS, dec)
-            space[ninj_t, ninj_c] = np.sum([sigs >= 5])/ntrials
+        #TC space signifigance comparison
+        for ninj_t in range(size):
+            for ninj_c in range(size):
 
-            if progress:
-                print(f"{ninj_t}.{ninj_c//size}/{size}", end = '\r')
+                sigs = np.zeros([ntrials, len(self.Methods)])
+                for i in range(ntrials):
+                    ra = np.random.uniform(0, 2*np.pi)
+                    TS = self.test_methods(ra, dec, ninj_t, ninj_c)
+                    sigs[i] = self.calculate_sigma(TS, dec)
+                space[ninj_t, ninj_c] = np.sum([sigs >= 5], axis = 1)/ntrials
 
-    return space
+                if progress:
+                    print(f"{ninj_t}.{int(10*ninj_c/size)}/{size}", end = '\r')
+        if plot:
+            for k in range(len(self.Methods)):
+                plt.contourf(space[:,:,k], origin = 'lower')
+                plt.xlabel("Injected Tracks")
+                plt.ylabel("Injected Cascades")
+                plt.title("Sensitivity for Topologically Varied Injections")
+                plt.savefig('./plots/TC_SPACE_' + self.name + '_' + self.Methods[k])
+
+        return space
