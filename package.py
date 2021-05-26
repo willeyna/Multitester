@@ -256,7 +256,7 @@ def MM(tracks, cascades, ra, dec, args):
 
 # TOPOLOGY RATIO PRIOR APPLIED
 # THIS VERSION DOES NOT USE knn FOR  SIGNAL COUNT; USES LLH MAXIMIZER
-def TCP(tracks, cascades, ra = 45, dec = 60, args = args):
+def TCP(tracks, cascades, ra, dec, args):
     if 'Prior' in args:
         TC = args['Prior']
 
@@ -298,7 +298,7 @@ def TruePrior(tracks, cascades, ra, dec, args):
 
     return np.exp(maxllh - offset),
 
-def LLH_detector0(evs, ra, dec, args):
+def LLH_detector0(evs, ra, dec):
     nev = evs.shape[0]
     ns = np.arange(0,nev)
     B = 1/(4*np.pi)
