@@ -171,16 +171,29 @@ def gen(n_Ev, g, topo = 0, inra=None,indec=None):
 # METHODS FOR SIGNAL DETECTION
 # FOR EACH METHOD TO FUNCTION PROPERLY WITH THE HYPOTHESIS TESTING SCRIPTS THEY MUST RETURN TS AS RETURN VALUE [0]
 
-#CLASSIC LLH WITHOUT ENERGY
-def LLH_detector(tracks,cascades, ra, dec, args):
+#CLASSIC LLH WITHOUT ENERGY TERMS
+def LLH(tracks,cascades, ra, dec, args):
     evs = np.concatenate([tracks,cascades])
+
+    #filter events by the band of the specified ra,dec
+    bands = args['dec_bands']
+    #finds the band that the specified ra,dec fall into
+    band = bands[np.argmax(np.array([np.logical_and(dec >= band[0],dec < band[1]) for band in bands]))]
+    #filters the events to get only the events in the specified band
+    evs = evs[np.logical_and(evs['dec'] >= band[0], evs['dec'] < band[1])]
     nev = evs.shape[0]
-    B = 1/(4*np.pi)
+
+    #in case the band is empty
+    if len(evs) == 0:
+        return 0,0
+
+    #1/solid angle of the band
+    B = 1/(2*np.pi*(np.sin(band[1]) - np.sin(band[0])))
 
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
 
     fun = lambda n, S, B: -np.sum(np.log( ((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B) ))
-    opt = minimize(fun, 10, (S,B), bounds = ((0,None),))
+    opt = minimize(fun, 0, (S,B), bounds = ((0,None),))
 
     n_sig = float(opt.x)
     maxllh = -float(opt.fun)
@@ -347,6 +360,9 @@ class multi_tester():
 
         self.dec_bands = dec_bands
 
+        if 'LLH' in methods and 'dec_bands' not in args:
+            args['dec_bands'] = dec_bands
+
         #list of method names exactly as they are written in the package (ex "LLH_detector")
         self.Methods = methods
 
@@ -501,6 +517,7 @@ class multi_tester():
         signal_filename = 'multitester_' + self.timetag + "_SIGNAL.npz"
 
         self.bkg = bkg_filename
+        self.signal = signal_filename
         self.ran = True
 
         #saves this object in a pkl file to be read in by other scripts
@@ -555,7 +572,7 @@ class multi_tester():
         point in the sky to give a visual for the methods' performances.
     TS sky array is saved in self.sky and can be shown using show_sky
     '''
-    def create_sky(self, ninj_t = 0, ninj_c = 0, inj_ra = 0, inj_dec = 0):
+    def create_sky(self, ninj_t = 0, ninj_c = 0, inj_ra = 0, inj_dec = 0, bar = False):
         #angle array of every point on the sky
         m = np.arange(self.NPIX)
         theta, phi = np.deg2rad(hp.pix2ang(nside=self.NSIDE, ipix=m, lonlat = True))
@@ -564,19 +581,27 @@ class multi_tester():
         tracks = np.concatenate([gen(ninj_t, 2, 0, inra = inj_ra, indec = inj_dec),gen(self.track_count, 3.7, 0)])
         cascades = np.concatenate([gen(ninj_c, 2, 1, inra = inj_ra, indec = inj_dec),gen(self.cascade_count, 3.7, 1)])
 
-        for i in tqdm(range((self.NPIX))):
-            for k, method in enumerate(self.Methods):
-                self.sky[i][k] = eval(method + '(tracks, cascades, theta[i], phi[i])')[0]
+        if bar:
+            for i in tqdm(range((self.NPIX))):
+                for k, method in enumerate(self.Methods):
+                    self.sky[i][k] = eval(method + '(tracks, cascades, theta[i], phi[i], args = self.args)')[0]
+        else:
+            for i in (range((self.NPIX))):
+                for k, method in enumerate(self.Methods):
+                    self.sky[i][k] = eval(method + '(tracks, cascades, theta[i], phi[i], args = self.args)')[0]
 
         return self.sky
 
     '''
     Saves a mollwide view of each method's TS sky in ./plots
     '''
-    def show_sky(self):
+    def show_sky(self, inline = False):
         for i in range(self.sky.shape[1]):
             hp.mollview(self.sky[:,i])
-            plt.savefig('./plots/SKY' + self.name+ self.Methods[i])
+            if inline:
+                plt.show()
+            else:
+                plt.savefig('./plots/SKY' + self.name+ self.Methods[i])
         return
 
     """
