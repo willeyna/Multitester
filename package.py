@@ -517,6 +517,7 @@ class multi_tester():
         signal_filename = 'multitester_' + self.timetag + "_SIGNAL.npz"
 
         self.bkg = bkg_filename
+        self.signal = signal_filename
         self.ran = True
 
         #saves this object in a pkl file to be read in by other scripts
