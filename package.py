@@ -210,13 +210,26 @@ def SMTopoAw(tracks, cascades, ra, dec, args):
         a,c = 0.5, 2.2
 
     evs = np.concatenate([tracks,cascades])
+
+    #filter events by the band of the specified ra,dec
+    bands = args['dec_bands']
+    #finds the band that the specified ra,dec fall into
+    band = bands[np.argmax(np.array([np.logical_and(dec >= band[0],dec < band[1]) for band in bands]))]
+    #filters the events to get only the events in the specified band
+    evs = evs[np.logical_and(evs['dec'] >= band[0], evs['dec'] < band[1])]
+    nev = evs.shape[0]
+
+    #in case the band is empty
+    if len(evs) == 0:
+        return 0,0
+
     fS = PercentE(evs['logE'],evs['topo'], True)
     fB = PercentE(evs['logE'],evs['topo'], False)
 
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']],[ra,dec]) * sigmoid(fS, a = 0.5, c = 2.2)
 
     B = np.zeros_like(S)
-    B += (1/(4*np.pi)) * fB
+    B += 1/(2*np.pi*(np.sin(band[1]) - np.sin(band[0]))) * fB
 
     fun = lambda n, S, B: -np.sum(np.log( (((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B))))
     opt = minimize(fun, 10, (S,B), bounds = ((0,None),))
@@ -230,12 +243,22 @@ def SMTopoAw(tracks, cascades, ra, dec, args):
 
 def Cascade_Filter(tracks, cascades, ra, dec, args):
     ntrack = tracks.shape[0]
-    B = 1/(4*np.pi)
+
+    #filter events by the band of the specified ra,dec
+    bands = args['dec_bands']
+    #finds the band that the specified ra,dec fall into
+    band = bands[np.argmax(np.array([np.logical_and(dec >= band[0],dec < band[1]) for band in bands]))]
+    #filters the events to get only the events in the specified band
+    tracks = tracks[np.logical_and(tracks['dec'] >= band[0], tracks['dec'] < band[1])]
+    cascades = cascades[np.logical_and(cascades['dec'] >= band[0], cascades['dec'] < band[1])]
+    ntrack = evs.shape[0]
 
     S =  evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']],[ra,dec])
+    B = 1/(2*np.pi*(np.sin(band[1]) - np.sin(band[0])))
 
     fun = lambda n, S, B: -np.sum(np.log( ((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B) ))
-    opt = minimize(fun, 10, (S,B), bounds = ((0,None),))
+    opt = minimize(fun, 0, (S,B), bounds = ((0,None),))
+
     maxllh = -float(opt.fun)
     TS = 2*(maxllh - ntrack*np.log(B))
     #Applies a cascade prior to the traditional LLH TS for tracks
@@ -277,11 +300,10 @@ def TCP(tracks, cascades, ra, dec, args):
     nst = int(round(LLH_detector0(tracks, ra, dec)[1]))
     prior = TC[nst,nsc]
 
-    TS0 = LLH_detector(tracks, cascades, ra, dec)[0]
+    TS0 = LLH_detector(tracks, cascades, ra, dec, args)[0]
     TS = TS0 * prior
     return TS, prior, [nst,nsc], TS0
 
-# runs LLH_detector 3 times per function run. Time should go as 3t?
 def TruePrior(tracks, cascades, ra, dec, args):
     if 'Prior' in args:
         TC = args['Prior']
@@ -360,7 +382,8 @@ class multi_tester():
 
         self.dec_bands = dec_bands
 
-        if 'LLH' in methods and 'dec_bands' not in args:
+        #makes sure declination bands are passed in args to any method that needs them
+        if len({'LLH', 'SMTopoAw', "Cascade_Filter", "TCP", "TruePrior"}.intersection(methods)) != 0 and 'dec_bands' not in args:
             args['dec_bands'] = dec_bands
 
         #list of method names exactly as they are written in the package (ex "LLH_detector")
