@@ -10,18 +10,19 @@ NEAR FUTURE TO-DO:
 
 * Add method arg dictionary for passing misc items in [X]
 
-* TC plots, contours, and sensitivity [ ]
+*Declination band improvements/ uniformity [ ] 
 
-* Change the way injection amounts are specified [ ]
+* TC plots, contours, and sensitivity [?]
 
-
-
+* Add skylab integration [ ] 
 
 LATER VERSIONS: 
 
+* Multiple background distributions for one object [ ]
+
 * Allow pulling theta, phi from varying distributions [ ]
 
-* Multiple background distributions for one object [ ] 
+* Change the way injection amounts are specified [ ]
 
 * Outputs modes [ ]
 
