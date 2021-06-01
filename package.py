@@ -408,7 +408,7 @@ class multi_tester():
                 raise ValueError("Specify your desired band width for use in LLH-dependent functions")
             args['delta_ang'] = np.deg2rad(args['delta_ang'])
 
-            args['bkg_spline'] = self.create_spline(bins = spline_bins)
+            args['bkg_spline'] = self.create_spline(bincount = spline_bins)
 
         #list of method names exactly as they are written in the package (ex "LLH_detector")
         self.Methods = methods
