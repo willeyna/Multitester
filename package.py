@@ -303,6 +303,7 @@ def TruePrior(tracks, cascades, ra, dec, args):
         #only considers events within a delta_ang rad declination band around the location
         mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
         tracks = tracks[mask]
+        ntrack = tracks.shape[0]
 
     evs = np.concatenate([tracks,cascades])
     nev = evs.shape[0]
@@ -325,7 +326,10 @@ def TruePrior(tracks, cascades, ra, dec, args):
     L0 = np.sum(np.log(B)).astype('float128')
 
     # prior calculation
-    nst = LLH_detector0(tracks, ra, dec, args = args)[1]
+    if ntrack == 0:
+        nst = 0
+    else:
+        nst = LLH_detector0(tracks, ra, dec, args = args)[1]
     nsc = LLH_detector0(cascades, ra, dec, args = args)[1]
     prior = TC[nst,nsc].astype('float128')
 

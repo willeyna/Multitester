@@ -12,8 +12,7 @@ import pandas as pd
 data = np.load(sys.argv[1])
 topo = int(sys.argv[2])
 
-names = ('time',
-         'ra',
+names = ('ra',
          'dec',
          'angErr',
          'logE',
@@ -21,7 +20,6 @@ names = ('time',
          'topo')
 
 formats = ('<f8',
-           '<f8',
            '<f8',
            '<f8',
            '<f8',
