@@ -10,7 +10,7 @@ NEAR FUTURE TO-DO:
 
 * Add method arg dictionary for passing misc items in [X]
 
-*Declination band improvements/ uniformity [ ] 
+*Declination band improvements/ uniformity [X] 
 
 * TC plots, contours, and sensitivity [?]
 
@@ -27,3 +27,10 @@ LATER VERSIONS:
 * Outputs modes [ ]
 
 * Add a path argument to run (for creation of sbatch) (right now you manually set up sbatch) [ ]
+
+
+OPEN QUESTIONS:
+
+* Should you cut cascades for declination in a LLH search? [ ]
+
+* When calculating signal TS p-values should you compare to all bkg TS, TS in the same pre-defined band as the signal TS, or all TS within delta_ang of signal TS? [ ]

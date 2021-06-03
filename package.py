@@ -59,20 +59,20 @@ def p_value(x, bkg):
 def sigmoid(x, c = 3, a =.5):
     return 1 / (1 + np.exp(-c * (x - a)))
 
-# #size := max number
-# size = 30
-# CTR = 2
-#
-# TCT, TCC = np.zeros([size+1,size+1]),np.zeros([size+1,size+1])
-# for i in range(1, size):
-#     TCC[:,i] = poisson(i/CTR, np.linspace(0,size,size+1))
-#     TCT[i,:] = poisson(i*CTR, np.linspace(0,size,size+1))
-# TC = (TCT + TCC)
-# for i in range(TC.shape[0]):
-#     for j in range(TC.shape[0]):
-#         TC[i,j] *= (j+i)
-# TC[0,0] = 1e-20
-# TC /= np.sum(TC)
+#size := max number
+size = 30
+CTR = 2
+
+TCT, TCC = np.zeros([size+1,size+1]),np.zeros([size+1,size+1])
+for i in range(1, size):
+    TCC[:,i] = poisson(i/CTR, np.linspace(0,size,size+1))
+    TCT[i,:] = poisson(i*CTR, np.linspace(0,size,size+1))
+TC = (TCT + TCC)
+for i in range(TC.shape[0]):
+    for j in range(TC.shape[0]):
+        TC[i,j] *= (j+i)
+TC[0,0] = 1e-20
+TC /= np.sum(TC)
 
 ####################################################################################
 
@@ -174,14 +174,12 @@ def gen(n_Ev, g, topo = 0, inra=None,indec=None):
 
 #CLASSIC LLH WITHOUT ENERGY TERMS
 def LLH(tracks,cascades, ra, dec, args):
-    evs = np.concatenate([tracks,cascades])
 
-    #calculates the max and min dec of the band around ra,dec
-    dmin = max(-np.pi/2., dec - args['delta_ang'])
-    dmax = min(dec + args['delta_ang'], np.pi/2.)
-    #only considers events within a delta_ang rad declination band around the location
-    mask = np.logical_and(evs["dec"] > dmin, evs["dec"] < dmax)
-    evs = evs[mask]
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
+    evs = np.concatenate([tracks,cascades])
     nev = evs.shape[0]
 
     #in case the band is empty
@@ -209,28 +207,16 @@ def SMTopoAw(tracks, cascades, ra, dec, args):
     else:
         a,c = 0.5, 2.2
 
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
     evs = np.concatenate([tracks,cascades])
-
-    # #filter events by the band of the specified ra,dec
-    # bands = args['dec_bands']
-    # #finds the band that the specified ra,dec fall into
-    # band = bands[np.argmax(np.array([np.logical_and(dec >= band[0],dec < band[1]) for band in bands]))]
-    # #filters the events to get only the events in the specified band
-    # evs = evs[np.logical_and(evs['dec'] >= band[0], evs['dec'] < band[1])]
-    # nev = evs.shape[0]
-
-    #calculates the max and min dec of the band around ra,dec
-    dmin = max(-np.pi/2., dec - args['delta_ang'])
-    dmax = min(dec + args['delta_ang'], np.pi/2.)
-    #only considers events within a delta_ang rad declination band around the location
-    mask = np.logical_and(evs["dec"] > dmin, evs["dec"] < dmax)
-    evs = evs[mask]
     nev = evs.shape[0]
 
     #in case the band is empty
     if nev == 0:
         return 0,0
-
 
     fS = PercentE(evs['logE'],evs['topo'], True)
     fB = PercentE(evs['logE'],evs['topo'], False)
@@ -251,12 +237,10 @@ def SMTopoAw(tracks, cascades, ra, dec, args):
 
 def Cascade_Filter(tracks, cascades, ra, dec, args):
 
-    #calculates the max and min dec of the band around ra,dec
-    dmin = max(-np.pi/2., dec - args['delta_ang'])
-    dmax = min(dec + args['delta_ang'], np.pi/2.)
-    #only considers events within a delta_ang rad declination band around the location
-    mask = np.logical_and(tracks["dec"] > dmin, tracks["dec"] < dmax)
-    tracks = tracks[mask]
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
     ntrack = tracks.shape[0]
 
     #in case the band is empty
@@ -318,13 +302,12 @@ def TruePrior(tracks, cascades, ra, dec, args):
     if 'Prior' in args:
         TC = args['Prior']
 
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
+
     evs = np.concatenate([tracks,cascades])
-    #calculates the max and min dec of the band around ra,dec
-    dmin = max(-np.pi/2., dec - args['delta_ang'])
-    dmax = min(dec + args['delta_ang'], np.pi/2.)
-    #only considers events within a delta_ang rad declination band around the location
-    mask = np.logical_and(evs["dec"] > dmin, evs["dec"] < dmax)
-    evs = evs[mask]
     nev = evs.shape[0]
 
     #in case the band is empty
@@ -369,6 +352,34 @@ def LLH_detector0(evs, ra, dec, args):
 
     return maxllh, injected, TS
 
+def LLH0(tracks, cascades, ra, dec, args):
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
+    evs = np.concatenate([tracks, cascades])
+    nev = evs.shape[0]
+
+    #in case the band is empty
+    if nev == 0:
+        return 0,0
+
+    ns = np.arange(0,nev)
+    B = (1/(2*np.pi)) * np.exp(args['bkg_spline'](evs['dec']))
+
+    S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
+
+    nfit, sfit = np.meshgrid(ns, S)
+    nfit, bfit = np.meshgrid(ns, B)
+
+    lsky = np.log( (nfit/(nev))*sfit + (1 - nfit/(nev))*bfit )
+    injected = (np.argmax(np.sum(lsky,axis=0)))
+    maxllh = np.max(np.sum(lsky,axis=0))
+
+    TS = 2*(maxllh - np.sum(np.log(B)))
+
+    return TS, injected
+
 
 class multi_tester():
 
@@ -377,13 +388,15 @@ class multi_tester():
     tracks: [int] # background tracks
     cascades: [int] # background cascades
     resolution: [int] Healpy grid resolution (NPIX = 2**resolution)
-    dec_bands: [list/array] Dec bands [min,max] for which to test events in (Cannot overlap)
+    dec_bands: [list/array] Dec bands [min,max] for p-value calculation and background distribution creation (Cannot overlap)
+                            Signal and background TS made with run() will only be generated within these bands
+                            Singal TS generated in these bands are compared only to others within their bands in calculating significances
     args: [dict] Used to pass information to the methods. Keys are method specific strings (ex: 'Prior' to pass in a TC prior).
                 values vary depending on method.
 
     Takes in the above arguments, checks to make sure they're of the right form, and initializes the object
     '''
-    def __init__(self, methods, tracks, cascades, resolution = 8, dec_bands = np.rad2deg(np.arcsin(np.column_stack([np.arange(-1,1,.2),np.arange(-.8,1.2,.2)]))), spline_bins = 20, args = dict()):
+    def __init__(self, methods, tracks, cascades, resolution = 8, dec_bands = np.arcsin(np.column_stack([np.arange(-1,1,.2),np.arange(-.8,1.2,.2)])), spline_bins = 20, args = dict()):
 
         if type(args) != dict:
             raise ValueError("args should be a dictionary of values to pass to the method functions.")
@@ -392,21 +405,20 @@ class multi_tester():
         #this test allows for discontinuous bands, but checks to make sure there is no overlap between declination bands
 
         for band in dec_bands:
-            assert(band[0] >= -90 and band[1] <= 90), "Declination is defined within [-90,90]."
+            assert(band[0] >= -np.pi/2 and band[1] <= np.pi/2), "Declination is defined within [-pi/2,pi/2]."
             for testband in dec_bands:
                 #tests the bands for any overlap
                 if np.all(band != testband):
                     assert(not (band[0] > testband[0] and band[0] < testband[1])), "Your declination bands either overlap or are in an unsupported format."
                     assert(not (band[1] > testband[0] and band[1] < testband[1])), "Your declination bands either overlap or are in an unsupported format."
 
-        dec_bands = np.deg2rad(np.array(dec_bands))
+        dec_bands = np.array(dec_bands)
         self.dec_bands = dec_bands
 
         #makes sure declination bands are passed in args to any method that needs them
         if len({'LLH', 'SMTopoAw', "Cascade_Filter", "TCP", "TruePrior"}.intersection(methods)) != 0:
             if 'delta_ang' not in args:
                 raise ValueError("Specify your desired band width for use in LLH-dependent functions")
-            args['delta_ang'] = np.deg2rad(args['delta_ang'])
 
             args['bkg_spline'] = self.create_spline(bincount = spline_bins)
 
@@ -753,19 +765,15 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
     Returns a spline function that can be evaluated over [-pi/2,pi/2]
     ## Later alter to create splines for both topologies
     '''
-    def create_spline(self, bincount = 20, split = False):
+    def create_spline(self, bincount = 20):
         #load in background data and create a background dec. dependent pdf
         tracks = np.load("./mcdata/tracks_mc.npy")
         cascs = np.load("./mcdata/cascade_mc.npy")
         #even bins over sin(declination)
         bins = np.arcsin(np.linspace(-1, 1, bincount))
-        if split:
-            #split topology splines
-            return
-        else:
-            decs = np.concatenate([tracks['dec'], cascs['dec']])
-            vals, bins = np.histogram(decs, bins = bins, density = True)
-            spline = scipy.interpolate.InterpolatedUnivariateSpline(
-                                            (bins[1:] + bins[:-1]) / 2.,
-                                            np.log(vals), k=3)
-            return spline
+        decs = np.concatenate([tracks['dec'], cascs['dec']])
+        vals, bins = np.histogram(decs, bins = bins, density = True)
+        spline = scipy.interpolate.InterpolatedUnivariateSpline(
+                                        (bins[1:] + bins[:-1]) / 2.,
+                                        np.log(vals), k=3)
+        return spline
