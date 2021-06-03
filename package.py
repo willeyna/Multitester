@@ -140,9 +140,6 @@ def gen(n_Ev, g, topo = 0, inra=None,indec=None):
         evs=np.copy(mc[keySC])
 
         if(inra!=None and indec!=None):
-            evs["trueRa"]=inra
-            evs["trueDec"]=indec
-
             #Note: this method was yanked from a skylab example and might not actually be great
             eta = np.random.uniform(0., 2.*np.pi, n_Ev)
             sigmags=np.random.normal(scale=evs["angErr"])
