@@ -4,13 +4,13 @@ import matplotlib.pyplot as plt
 import healpy as hp
 import datetime
 import sys
-import glob
 import os
 from scipy.optimize import minimize
 from scipy.special import factorial
 from bisect import bisect
 from tqdm import tqdm
 import pickle
+import scipy.interpolate
 
 #loads in parameters for an Energy function brought in from a plot in https://arxiv.org/pdf/1306.2309.pdf
 params = np.array([[ 7.83668562e+13, -2.29461080e+00],
@@ -58,20 +58,20 @@ def p_value(x, bkg):
 def sigmoid(x, c = 3, a =.5):
     return 1 / (1 + np.exp(-c * (x - a)))
 
-# #size := max number
-# size = 30
-# CTR = 2
-#
-# TCT, TCC = np.zeros([size+1,size+1]),np.zeros([size+1,size+1])
-# for i in range(1, size):
-#     TCC[:,i] = poisson(i/CTR, np.linspace(0,size,size+1))
-#     TCT[i,:] = poisson(i*CTR, np.linspace(0,size,size+1))
-# TC = (TCT + TCC)
-# for i in range(TC.shape[0]):
-#     for j in range(TC.shape[0]):
-#         TC[i,j] *= (j+i)
-# TC[0,0] = 1e-20
-# TC /= np.sum(TC)
+#size := max number
+size = 30
+CTR = 2
+
+TCT, TCC = np.zeros([size+1,size+1]),np.zeros([size+1,size+1])
+for i in range(1, size):
+    TCC[:,i] = poisson(i/CTR, np.linspace(0,size,size+1))
+    TCT[i,:] = poisson(i*CTR, np.linspace(0,size,size+1))
+TC = (TCT + TCC)
+for i in range(TC.shape[0]):
+    for j in range(TC.shape[0]):
+        TC[i,j] *= (j+i)
+TC[0,0] = 1e-20
+TC /= np.sum(TC)
 
 ####################################################################################
 
@@ -139,9 +139,6 @@ def gen(n_Ev, g, topo = 0, inra=None,indec=None):
         evs=np.copy(mc[keySC])
 
         if(inra!=None and indec!=None):
-            evs["trueRa"]=inra
-            evs["trueDec"]=indec
-
             #Note: this method was yanked from a skylab example and might not actually be great
             eta = np.random.uniform(0., 2.*np.pi, n_Ev)
             sigmags=np.random.normal(scale=evs["angErr"])
@@ -173,31 +170,28 @@ def gen(n_Ev, g, topo = 0, inra=None,indec=None):
 
 #CLASSIC LLH WITHOUT ENERGY TERMS
 def LLH(tracks,cascades, ra, dec, args):
-    evs = np.concatenate([tracks,cascades])
 
-    #filter events by the band of the specified ra,dec
-    bands = args['dec_bands']
-    #finds the band that the specified ra,dec fall into
-    band = bands[np.argmax(np.array([np.logical_and(dec >= band[0],dec < band[1]) for band in bands]))]
-    #filters the events to get only the events in the specified band
-    evs = evs[np.logical_and(evs['dec'] >= band[0], evs['dec'] < band[1])]
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
+    evs = np.concatenate([tracks,cascades])
     nev = evs.shape[0]
 
     #in case the band is empty
-    if len(evs) == 0:
+    if nev == 0:
         return 0,0
 
-    #1/solid angle of the band
-    B = 1/(2*np.pi*(np.sin(band[1]) - np.sin(band[0])))
+    B = (1/(2*np.pi)) * np.exp(args['bkg_spline'](evs['dec']))
 
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
 
-    fun = lambda n, S, B: -np.sum(np.log( ((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B) ))
-    opt = minimize(fun, 0, (S,B), bounds = ((0,None),))
+    fun = lambda n, S, B: -np.sum(np.log( (((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B))))
+    opt = minimize(fun, nev/2, (S,B), bounds = ((0,nev),))
 
     n_sig = float(opt.x)
     maxllh = -float(opt.fun)
-    TS = 2*(maxllh - nev*np.log(B))
+    TS = 2*(maxllh - np.sum(np.log(B)))
 
     return TS, n_sig
 
@@ -209,18 +203,15 @@ def SMTopoAw(tracks, cascades, ra, dec, args):
     else:
         a,c = 0.5, 2.2
 
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
     evs = np.concatenate([tracks,cascades])
-
-    #filter events by the band of the specified ra,dec
-    bands = args['dec_bands']
-    #finds the band that the specified ra,dec fall into
-    band = bands[np.argmax(np.array([np.logical_and(dec >= band[0],dec < band[1]) for band in bands]))]
-    #filters the events to get only the events in the specified band
-    evs = evs[np.logical_and(evs['dec'] >= band[0], evs['dec'] < band[1])]
     nev = evs.shape[0]
 
     #in case the band is empty
-    if len(evs) == 0:
+    if nev == 0:
         return 0,0
 
     fS = PercentE(evs['logE'],evs['topo'], True)
@@ -228,11 +219,10 @@ def SMTopoAw(tracks, cascades, ra, dec, args):
 
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']],[ra,dec]) * sigmoid(fS, a = 0.5, c = 2.2)
 
-    B = np.zeros_like(S)
-    B += 1/(2*np.pi*(np.sin(band[1]) - np.sin(band[0]))) * fB
+    B = (1/(2*np.pi)) * np.exp(args['bkg_spline'](evs['dec'])) * fB
 
     fun = lambda n, S, B: -np.sum(np.log( (((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B))))
-    opt = minimize(fun, 10, (S,B), bounds = ((0,None),))
+    opt = minimize(fun, nev/2, (S,B), bounds = ((0,None),))
 
     injected = float(opt.x)
     maxllh = -float(opt.fun)
@@ -242,22 +232,22 @@ def SMTopoAw(tracks, cascades, ra, dec, args):
     return TS, injected
 
 def Cascade_Filter(tracks, cascades, ra, dec, args):
+
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
     ntrack = tracks.shape[0]
 
-    #filter events by the band of the specified ra,dec
-    bands = args['dec_bands']
-    #finds the band that the specified ra,dec fall into
-    band = bands[np.argmax(np.array([np.logical_and(dec >= band[0],dec < band[1]) for band in bands]))]
-    #filters the events to get only the events in the specified band
-    tracks = tracks[np.logical_and(tracks['dec'] >= band[0], tracks['dec'] < band[1])]
-    cascades = cascades[np.logical_and(cascades['dec'] >= band[0], cascades['dec'] < band[1])]
-    ntrack = evs.shape[0]
+    #in case the band is empty
+    if ntrack == 0:
+        return 0,0
 
     S =  evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']],[ra,dec])
-    B = 1/(2*np.pi*(np.sin(band[1]) - np.sin(band[0])))
+    B = (1/(2*np.pi)) * np.exp(args['bkg_spline'](tracks['dec'])) * fB
 
     fun = lambda n, S, B: -np.sum(np.log( ((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B) ))
-    opt = minimize(fun, 0, (S,B), bounds = ((0,None),))
+    opt = minimize(fun, ntrack/2, (S,B), bounds = ((0,None),))
 
     maxllh = -float(opt.fun)
     TS = 2*(maxllh - ntrack*np.log(B))
@@ -273,7 +263,7 @@ def RLLH(tracks,cascades,ra,dec, args):
     evs = np.concatenate([tracks,cascades])
 
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
-    B = 1/(4*np.pi)
+    B = (1/(2*np.pi)) * np.exp(args['bkg_spline'](evs['dec']))
 
     alpha = S > B
     ns = np.sum(alpha)
@@ -308,35 +298,48 @@ def TruePrior(tracks, cascades, ra, dec, args):
     if 'Prior' in args:
         TC = args['Prior']
 
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
+        ntrack = tracks.shape[0]
+
     evs = np.concatenate([tracks,cascades])
     nev = evs.shape[0]
 
+    #in case the band is empty
+    if nev == 0:
+        return 0,0
+
     # spatial bkg and signal terms
-    B = 1/(4*np.pi)
+    B = (1/(2*np.pi)) * np.exp(args['bkg_spline'](evs['dec']))
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
 
     # LLH calculations/maximizations
     fun = lambda n, S, B: -np.sum(np.log( ((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B) ))
-    opt = minimize(fun, 10, (S,B), bounds = ((0,None),))
+    opt = minimize(fun, nev/2, (S,B), bounds = ((0,None),))
     n_sig = float(opt.x)
     maxllh = -float(opt.fun)
 
     # null likelihood
-    L0 = nev*np.log(B).astype('float128')
+    L0 = np.sum(np.log(B)).astype('float128')
 
     # prior calculation
-    nst = LLH_detector0(tracks, ra, dec)[1]
-    nsc = LLH_detector0(cascades, ra, dec)[1]
+    if ntrack == 0:
+        nst = 0
+    else:
+        nst = LLH_detector0(tracks, ra, dec, args = args)[1]
+    nsc = LLH_detector0(cascades, ra, dec, args = args)[1]
     prior = TC[nst,nsc].astype('float128')
 
     offset = np.log(np.exp(maxllh) + np.exp(L0)*((1/prior) - 1))
 
     return np.exp(maxllh - offset),
 
-def LLH_detector0(evs, ra, dec):
+def LLH_detector0(evs, ra, dec, args):
     nev = evs.shape[0]
     ns = np.arange(0,nev)
-    B = 1/(4*np.pi)
+    B = (1/(2*np.pi)) * np.exp(args['bkg_spline'](evs['dec']))
 
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
     nfit, sfit = np.meshgrid(ns, S)
@@ -349,6 +352,34 @@ def LLH_detector0(evs, ra, dec):
 
     return maxllh, injected, TS
 
+def LLH0(tracks, cascades, ra, dec, args):
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
+    evs = np.concatenate([tracks, cascades])
+    nev = evs.shape[0]
+
+    #in case the band is empty
+    if nev == 0:
+        return 0,0
+
+    ns = np.arange(0,nev)
+    B = (1/(2*np.pi)) * np.exp(args['bkg_spline'](evs['dec']))
+
+    S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
+
+    nfit, sfit = np.meshgrid(ns, S)
+    nfit, bfit = np.meshgrid(ns, B)
+
+    lsky = np.log( (nfit/(nev))*sfit + (1 - nfit/(nev))*bfit )
+    injected = (np.argmax(np.sum(lsky,axis=0)))
+    maxllh = np.max(np.sum(lsky,axis=0))
+
+    TS = 2*(maxllh - np.sum(np.log(B)))
+
+    return TS, injected
+
 
 class multi_tester():
 
@@ -357,34 +388,39 @@ class multi_tester():
     tracks: [int] # background tracks
     cascades: [int] # background cascades
     resolution: [int] Healpy grid resolution (NPIX = 2**resolution)
-    dec_bands: [list/array] Dec bands [min,max] for which to test events in (Cannot overlap)
+    dec_bands: [list/array] Dec bands [min,max] for p-value calculation and background distribution creation (Cannot overlap)
+                            Signal and background TS made with run() will only be generated within these bands
+                            Singal TS generated in these bands are compared only to others within their bands in calculating significances
     args: [dict] Used to pass information to the methods. Keys are method specific strings (ex: 'Prior' to pass in a TC prior).
                 values vary depending on method.
 
     Takes in the above arguments, checks to make sure they're of the right form, and initializes the object
     '''
-    def __init__(self, methods, tracks, cascades, resolution = 8, dec_bands = np.column_stack([np.arange(-90,90,10),np.arange(-80,100,10)]), args = dict()):
+    def __init__(self, methods, tracks, cascades, resolution = 8, dec_bands = np.arcsin(np.column_stack([np.arange(-1,1,.2),np.arange(-.8,1.2,.2)])), spline_bins = 20, args = dict()):
 
         if type(args) != dict:
             raise ValueError("args should be a dictionary of values to pass to the method functions.")
-        self.args = args
 
         #test of user inputted bands
         #this test allows for discontinuous bands, but checks to make sure there is no overlap between declination bands
-        dec_bands = np.deg2rad(np.array(dec_bands))
+
         for band in dec_bands:
-            assert(band[0] >= -90 and band[1] <= 90), "Declination is defined within [-90,90]."
+            assert(band[0] >= -np.pi/2 and band[1] <= np.pi/2), "Declination is defined within [-pi/2,pi/2]."
             for testband in dec_bands:
                 #tests the bands for any overlap
                 if np.all(band != testband):
                     assert(not (band[0] > testband[0] and band[0] < testband[1])), "Your declination bands either overlap or are in an unsupported format."
                     assert(not (band[1] > testband[0] and band[1] < testband[1])), "Your declination bands either overlap or are in an unsupported format."
 
+        dec_bands = np.array(dec_bands)
         self.dec_bands = dec_bands
 
         #makes sure declination bands are passed in args to any method that needs them
-        if len({'LLH', 'SMTopoAw', "Cascade_Filter", "TCP", "TruePrior"}.intersection(methods)) != 0 and 'dec_bands' not in args:
-            args['dec_bands'] = dec_bands
+        if len({'LLH', 'SMTopoAw', "Cascade_Filter", "TCP", "TruePrior"}.intersection(methods)) != 0:
+            if 'delta_ang' not in args:
+                raise ValueError("Specify your desired band width for use in LLH-dependent functions")
+
+            args['bkg_spline'] = self.create_spline(bincount = spline_bins)
 
         #list of method names exactly as they are written in the package (ex "LLH_detector")
         self.Methods = methods
@@ -399,14 +435,19 @@ class multi_tester():
         self.NPIX = hp.nside2npix(self.NSIDE)
         #status on whether the program has been run for this object
         self.ran = False
+        self.args = args
+        self.name = "_".join(self.Methods)
         return
 
     def __repr__(self):
         if self.ran:
-            desc = f'''Multi-tester object using the following methods: {self.Methods}\nBackground tracks: {self.track_count} Background Cascades: {self.cascade_count}\nRan with filename: {self.name} testing an injection of {self.ninj_t} tracks and {self.ninj_c} cascades
+            desc = f'''Multi-tester object using the following methods: {self.Methods}
+Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
+Ran with filename: {self.name} testing an injection of {self.ninj_t} tracks and {self.ninj_c} cascades.
             '''
         else:
-            desc = f'''Multi-tester object using the following methods: {self.Methods}\nBackground tracks: {self.track_count} Background Cascades: {self.cascade_count}
+            desc = f'''Multi-tester object using the following methods: {self.Methods}
+Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
             '''
         return desc
 
@@ -415,6 +456,8 @@ class multi_tester():
     filecount: [int] Number of files to split bkg creation into
     runtime: [str (hr:min:sec)] Time allocation for each file
     mem: [str (ex '50GB')] Memory allocation for each file
+
+    ra,dec: [float (rad)] ra and dec to build background distribution at and inject source at for signal trials
     signal_trials: [int] Number of signal trials to calculate significances for
     ninj_tracks, ninj_cascades: [int] Number of each topology to inject as a source for signal bkg_trials
     outpath: [str] Path to store data in (Default ./results/)
@@ -423,11 +466,15 @@ class multi_tester():
 
     If signal trials are specified creates the signal and background TS distributions and tests signal trials
         in order to calculate significances.
+    Without an ra,dec specified, will generate background and signal trials randomly within the declination bands
+        and compare to other events within each band.
     Creates background TS, signal TS, and significances files in the specified outpath
     '''
-    def run(self, bkg_trials, filecount, runtime, mem = '50G', signal_trials = 0, ninj_tracks = 0, ninj_cascades = 0, outpath = './results/', clean = True, dryrun = False):
+    def run(self, bkg_trials, filecount, runtime, mem = '50G', ra = None, dec = None, signal_trials = 0, ninj_tracks = 0, ninj_cascades = 0, clean = True, dryrun = False):
 
         self.signal_trials = signal_trials
+        self.ra = ra
+        self.dec = dec
 
         if type(runtime) != type(''):
             raise ValueError('Input runtime as a string of the form hr:min:seconds (ex 5:00:00 for 5 hours)')
@@ -439,9 +486,6 @@ class multi_tester():
         if(signal_trials > 0 and ninj_tracks+ninj_cascades == 0):
             raise ValueError(f'Signal trial count specified, but no events injected')
             return
-
-        #all files will be created in ./WIP and so add ../ to make outpath relative to the main directory
-        self.outpath = '../' + outpath
 
         self.timetag = ("".join(filter(str.isdigit, str(datetime.datetime.now()))))
         self.pkl = 'multitester_' + self.timetag + '.pkl'
@@ -595,7 +639,7 @@ class multi_tester():
         point in the sky to give a visual for the methods' performances.
     TS sky array is saved in self.sky and can be shown using show_sky
     '''
-    def create_sky(self, ninj_t = 0, ninj_c = 0, inj_ra = 0, inj_dec = 0, bar = False):
+    def create_sky(self, ninj_t = 0, ninj_c = 0, inj_ra = np.random.uniform(0,2*np.pi), inj_dec = np.random.uniform(-np.pi/2,np.pi/2), bar = False):
         #angle array of every point on the sky
         m = np.arange(self.NPIX)
         theta, phi = np.deg2rad(hp.pix2ang(nside=self.NSIDE, ipix=m, lonlat = True))
@@ -635,6 +679,7 @@ class multi_tester():
     *Must have loaded in the background distribution*
     Returns: Significance array
     """
+    #Not vectorized
     def calculate_sigma(self, TS, dec):
         TS = np.array(TS).reshape(-1)
 
@@ -711,3 +756,24 @@ class multi_tester():
                 plt.savefig('./plots/TC_SPACE_' + self.name + '_' + self.Methods[k])
 
         return space
+
+    '''
+    bins: [int] Number of declination bins (spline resolution)
+
+    Reads in the mcdata files and creates a cubic splined background pdf for declination taking into account the
+        declination dependence of events in your sample
+    Returns a spline function that can be evaluated over [-pi/2,pi/2]
+    ## Later alter to create splines for both topologies
+    '''
+    def create_spline(self, bincount = 20):
+        #load in background data and create a background dec. dependent pdf
+        tracks = np.load("./mcdata/tracks_mc.npy")
+        cascs = np.load("./mcdata/cascade_mc.npy")
+        #even bins over sin(declination)
+        bins = np.arcsin(np.linspace(-1, 1, bincount))
+        decs = np.concatenate([tracks['dec'], cascs['dec']])
+        vals, bins = np.histogram(decs, bins = bins, density = True)
+        spline = scipy.interpolate.InterpolatedUnivariateSpline(
+                                        (bins[1:] + bins[:-1]) / 2.,
+                                        np.log(vals), k=3)
+        return spline

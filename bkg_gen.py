@@ -8,7 +8,10 @@ declinations = np.zeros(tester.nper)
 
 t1= datetime.datetime.now()
 for i in (np.arange(tester.nper)):
-    ra,dec = np.random.uniform(0, 2*np.pi), np.random.choice([np.random.uniform(*band) for band in tester.dec_bands])
+    if tester.ra is not None and tester.dec is not None:
+        ra,dec = tester.ra,tester.dec
+    else:
+        ra,dec = np.random.uniform(0, 2*np.pi), np.random.choice([np.random.uniform(*band) for band in tester.dec_bands])
     bkg_TS[i] = tester.test_methods(ra, dec)
     declinations[i] = dec
 t2= datetime.datetime.now()
