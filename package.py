@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import healpy as hp
 import datetime
 import sys
-import glob
 import os
 from scipy.optimize import minimize
 from scipy.special import factorial
