@@ -5,6 +5,7 @@ import healpy as hp
 import datetime
 import sys
 import os
+import glob
 from scipy.optimize import minimize
 from scipy.special import factorial
 from bisect import bisect
@@ -62,16 +63,16 @@ def sigmoid(x, c = 3, a =.5):
 size = 30
 CTR = 2
 
-TCT, TCC = np.zeros([size+1,size+1]),np.zeros([size+1,size+1])
-for i in range(1, size):
-    TCC[:,i] = poisson(i/CTR, np.linspace(0,size,size+1))
-    TCT[i,:] = poisson(i*CTR, np.linspace(0,size,size+1))
-TC = (TCT + TCC)
-for i in range(TC.shape[0]):
-    for j in range(TC.shape[0]):
-        TC[i,j] *= (j+i)
-TC[0,0] = 1e-20
-TC /= np.sum(TC)
+#TCT, TCC = np.zeros([size+1,size+1]),np.zeros([size+1,size+1])
+#for i in range(1, size):
+#    TCC[:,i] = poisson(i/CTR, np.linspace(0,size,size+1))
+#    TCT[i,:] = poisson(i*CTR, np.linspace(0,size,size+1))
+#TC = (TCT + TCC)
+#for i in range(TC.shape[0]):
+#    for j in range(TC.shape[0]):
+#        TC[i,j] *= (j+i)
+#TC[0,0] = 1e-20
+#TC /= np.sum(TC)
 
 ####################################################################################
 
