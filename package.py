@@ -168,7 +168,7 @@ def gen(n_Ev, g, topo = 0, inra=None,indec=None):
 # METHODS FOR SIGNAL DETECTION
 # FOR EACH METHOD TO FUNCTION PROPERLY WITH THE HYPOTHESIS TESTING SCRIPTS THEY MUST RETURN TS AS RETURN VALUE [0]
 
-#CLASSIC LLH WITHOUT ENERGY TERMS
+#CLASSIC LLH
 def LLH(tracks,cascades, ra, dec, args):
 
     if args['delta_ang'] != 0:
@@ -182,9 +182,37 @@ def LLH(tracks,cascades, ra, dec, args):
     if nev == 0:
         return 0,0
 
-    B = (1/(2*np.pi)) * np.exp(args['bkg_spline'](evs['dec']))
+    B = (1/(2*np.pi)) * args['B'](evs['dec']) * args['Eb'](evs['logE'])
+    S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec]) * args['Es'](evs['logE'])
 
-    S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
+    fun = lambda n, S, B: -np.sum(np.log( (((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B))))
+    opt = minimize(fun, nev/2, (S,B), bounds = ((0,nev),))
+
+    n_sig = float(opt.x)
+    maxllh = -float(opt.fun)
+    TS = 2*(maxllh - np.sum(np.log(B)))
+
+    return TS, n_sig
+
+#Topology Aware LLH
+def TA(tracks,cascades, ra, dec, args):
+
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
+
+    evs = np.concatenate([tracks, cascades])
+    nev = evs.shape[0]
+
+    #computes track and cascade signal and background terms to be used in a combined LLH search
+    track_B = (1/(2*np.pi)) * args['Bt'](tracks['dec']) * args['Ebt'](tracks['logE'])
+    casc_B = (1/(2*np.pi)) * args['Bc'](cascades['dec']) * args['Ebc'](cascades['logE'])
+    B = np.concatenate([track_B, casc_B])
+
+    track_S = evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']], [ra,dec]) * args['Est'](tracks['logE'])
+    casc_S = evPSFd([cascades['ra'],cascades['dec'],cascades['angErr']], [ra,dec]) * args['Esc'](cascades['logE'])
+    S = np.concatenate([track_S, casc_S])
 
     fun = lambda n, S, B: -np.sum(np.log( (((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B))))
     opt = minimize(fun, nev/2, (S,B), bounds = ((0,nev),))
@@ -388,9 +416,9 @@ class multi_tester():
     tracks: [int] # background tracks
     cascades: [int] # background cascades
     resolution: [int] Healpy grid resolution (NPIX = 2**resolution)
-    dec_bands: [list/array] Dec bands [min,max] for p-value calculation and background distribution creation (Cannot overlap)
-                            Signal and background TS made with run() will only be generated within these bands
+    dec_bands: [list/array] Dec bands [min,max] for which to test events in (Cannot overlap) (Default 10 bins evenly spaced in sin dec)
                             Singal TS generated in these bands are compared only to others within their bands in calculating significances
+    spline_bins: [int] Number of bins to use in creation dec. depedent bkg pdf (Used only in LLH functions)
     args: [dict] Used to pass information to the methods. Keys are method specific strings (ex: 'Prior' to pass in a TC prior).
                 values vary depending on method.
 
@@ -403,7 +431,6 @@ class multi_tester():
 
         #test of user inputted bands
         #this test allows for discontinuous bands, but checks to make sure there is no overlap between declination bands
-
         for band in dec_bands:
             assert(band[0] >= -np.pi/2 and band[1] <= np.pi/2), "Declination is defined within [-pi/2,pi/2]."
             for testband in dec_bands:
@@ -411,19 +438,23 @@ class multi_tester():
                 if np.all(band != testband):
                     assert(not (band[0] > testband[0] and band[0] < testband[1])), "Your declination bands either overlap or are in an unsupported format."
                     assert(not (band[1] > testband[0] and band[1] < testband[1])), "Your declination bands either overlap or are in an unsupported format."
-
-        dec_bands = np.array(dec_bands)
+        dec_bands = (np.array(dec_bands))
         self.dec_bands = dec_bands
-
-        #makes sure declination bands are passed in args to any method that needs them
-        if len({'LLH', 'SMTopoAw', "Cascade_Filter", "TCP", "TruePrior"}.intersection(methods)) != 0:
-            if 'delta_ang' not in args:
-                raise ValueError("Specify your desired band width for use in LLH-dependent functions")
-
-            args['bkg_spline'] = self.create_spline(bincount = spline_bins)
 
         #list of method names exactly as they are written in the package (ex "LLH_detector")
         self.Methods = methods
+
+        #makes sure declination bands are passed in args to any method that needs them
+        if len({'LLH', 'SMTopoAw', "Cascade_Filter", "TCP", "TruePrior", "LLH0"}.intersection(methods)) != 0:
+            if 'delta_ang' not in args:
+                raise ValueError("Specify your desired band width for use in LLH-dependent functions")
+
+        #methods that do not rely on any topological information have split = False
+        if 'LLH' in self.Methods or 'LLH0' in self.Methods:
+            args['B'], args['Es'], args['Eb'] = self.create_pdfs(split = False)
+        #methods that want split topology pdfs
+        if 'TA' in self.Methods:
+            args['Bt'], args['Bc'], args['Est'], args['Ebt'], args['Esc'], args['Ebc'] = self.create_pdfs(split = True)
 
         #number of mc background tracks and cascades to create background TS for and test with
         #will be consistent for everything this object is used for
@@ -752,28 +783,64 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
                 plt.contourf(space[:,:,k], origin = 'lower')
                 plt.xlabel("Injected Tracks")
                 plt.ylabel("Injected Cascades")
-                plt.title("Sensitivity for Topologically Varied Injections")
+                plt.title("Sensitivity for Topologically Varied Injections: " + self.Methods[k])
                 plt.savefig('./plots/TC_SPACE_' + self.name + '_' + self.Methods[k])
 
         return space
 
     '''
-    bins: [int] Number of declination bins (spline resolution)
-
-    Reads in the mcdata files and creates a cubic splined background pdf for declination taking into account the
-        declination dependence of events in your sample
-    Returns a spline function that can be evaluated over [-pi/2,pi/2]
+    Reads in the mcdata files and uses a gaussian kernel density estimator to make a  pdf for declination taking into
+        account the declination dependence of events in your sample
+    Returns a pdf that can be evaluated over [-pi/2,pi/2]
     ## Later alter to create splines for both topologies
     '''
-    def create_spline(self, bincount = 20):
+    def create_pdfs(self, split = False):
         #load in background data and create a background dec. dependent pdf
         tracks = np.load("./mcdata/tracks_mc.npy")
         cascs = np.load("./mcdata/cascade_mc.npy")
-        #even bins over sin(declination)
-        bins = np.arcsin(np.linspace(-1, 1, bincount))
-        decs = np.concatenate([tracks['dec'], cascs['dec']])
-        vals, bins = np.histogram(decs, bins = bins, density = True)
-        spline = scipy.interpolate.InterpolatedUnivariateSpline(
-                                        (bins[1:] + bins[:-1]) / 2.,
-                                        np.log(vals), k=3)
-        return spline
+        #creates a large sample of MC signal and background events to determine energy pdfs from
+        sig_t = gen(100000, 2, 0)
+        bkg_t = gen(100000, 3.7, 0)
+        sig_c = gen(100000, 2, 1)
+        bkg_c = gen(100000, 3.7, 1)
+
+        #if splitting pdfs by topology for a topology aware analysis
+        if split:
+
+            #background pdf creation based on dec dist
+            dec_x = np.linspace(-np.pi/2, np.pi/2, 1000)
+
+            #Interpolation is MUCH faster to call than the scipy kde function, so we interpoalte over the kde
+            Bt = InterpolatedUnivariateSpline(dec_x, (gaussian_kde(tracks['dec'])(dec_x)), k = 3)
+            Bc = InterpolatedUnivariateSpline(dec_x, (gaussian_kde(cascs['dec'])(dec_x)), k = 3)
+
+            #signal and background energy pdfs
+            #makes sure any possible energy value falls within the range of interpolation
+            E_x = np.linspace(min(tracks['logE'].min(), cascs['logE'].min()), max(tracks['logE'].max(), cascs['logE'].max()), 1000)
+
+            Est = InterpolatedUnivariateSpline(E_x, (gaussian_kde(sig_t['logE'])(E_x)), k = 3)
+            Ebt = InterpolatedUnivariateSpline(E_x, (gaussian_kde(bkg_t['logE'])(E_x)), k = 3)
+
+            Esc = InterpolatedUnivariateSpline(E_x, (gaussian_kde(sig_c['logE'])(E_x)), k = 3)
+            Ebc = InterpolatedUnivariateSpline(E_x, (gaussian_kde(bkg_c['logE'])(E_x)), k = 3)
+
+            return Bt, Bc, Est, Ebt, Esc, Ebc
+
+        else:
+            signal = np.concatenate([sig_t, sig_c])
+            background = np.concatenate([bkg_t, bkg_c])
+
+            #background pdf creation based on dec dist
+            decs = np.concatenate([tracks['dec'], cascs['dec']])
+            dec_x = np.linspace(-np.pi/2, np.pi/2, 1000)
+
+            #Interpolation is MUCH faster to call than the scipy kde function, so we interpoalte over the kde
+            bkg_pdf = InterpolatedUnivariateSpline(dec_x, (gaussian_kde(decs)(dec_x)), k = 3)
+
+            #signal and background energy pdfs
+            #makes sure any possible energy value falls within the range of interpolation
+            E_x = np.linspace(min(tracks['logE'].min(), cascs['logE'].min()), max(tracks['logE'].max(), cascs['logE'].max()), 1000)
+            Es = InterpolatedUnivariateSpline(E_x, (gaussian_kde(signal['logE'])(E_x)), k = 3)
+            Eb = InterpolatedUnivariateSpline(E_x, (gaussian_kde(background['logE'])(E_x)), k = 3)
+
+            return bkg_pdf, Es, Eb
