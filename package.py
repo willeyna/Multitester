@@ -877,7 +877,7 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
             #Interpolation is MUCH faster to call than the scipy kde function, so we interpoalte over the kde
             bkg_pdf = InterpolatedUnivariateSpline(dec_x, (gaussian_kde(decs)(dec_x)), k = 3)
 
-            #signal and background energy pdfs
+            #signal and background energy pdfs#
             #makes sure any possible energy value falls within the range of interpolation
             E_x = np.linspace(min(tracks['logE'].min(), cascs['logE'].min()), max(tracks['logE'].max(), cascs['logE'].max()), 1000)
             Es = InterpolatedUnivariateSpline(E_x, (gaussian_kde(signal['logE'])(E_x)), k = 3)
