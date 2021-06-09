@@ -12,6 +12,8 @@ from bisect import bisect
 from tqdm import tqdm
 import pickle
 import scipy.interpolate
+from scipy.stats import gaussian_kde
+from scipy.interpolate import InterpolatedUnivariateSpline
 
 #loads in parameters for an Energy function brought in from a plot in https://arxiv.org/pdf/1306.2309.pdf
 params = np.array([[ 7.83668562e+13, -2.29461080e+00],
