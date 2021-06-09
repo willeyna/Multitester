@@ -226,6 +226,35 @@ def TA(tracks,cascades, ra, dec, args):
 
     return TS, n_sig
 
+#P(tau | gamma)
+def TA2(tracks,cascades, ra, dec, args):
+
+    if args['delta_ang'] != 0:
+        #only considers events within a delta_ang rad declination band around the location
+        mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+        tracks = tracks[mask]
+
+    evs = np.concatenate([tracks, cascades])
+    nev = evs.shape[0]
+
+    #computes track and cascade signal and background terms to be used in a combined LLH search
+    track_B = (1/(2*np.pi)) * args['Bt'](tracks['dec']) * args['Ebt'](tracks['logE']) * 0.884
+    casc_B = (1/(2*np.pi)) * args['Bc'](cascades['dec']) * args['Ebc'](cascades['logE']) * 0.116
+    B = np.concatenate([track_B, casc_B])
+
+    track_S = evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']], [ra,dec]) * args['Est'](tracks['logE']) * 0.29
+    casc_S = evPSFd([cascades['ra'],cascades['dec'],cascades['angErr']], [ra,dec]) * args['Esc'](cascades['logE']) * 0.71
+    S = np.concatenate([track_S, casc_S])
+
+    fun = lambda n, S, B: -np.sum(np.log( (((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B))))
+    opt = minimize(fun, nev/2, (S,B), bounds = ((0,nev),))
+
+    n_sig = float(opt.x)
+    maxllh = -float(opt.fun)
+    TS = 2*(maxllh - np.sum(np.log(B)))
+
+    return TS, n_sig
+
 
 def SMTopoAw(tracks, cascades, ra, dec, args):
 
@@ -634,18 +663,28 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
 
 
     '''
+    signal: [bool] Determines whether or not to read in a signal TS distribution too
+            Only let signal be True if signal generation was done in run() as well
+
     Run this after the BKG creation process is finished.
     Loads in the background TS distribution created with run() into self.bkg
     TS can then be found with self.bkg['TS']
     '''
-    def load_TS(self):
+    def load_TS(self, signal):
         try:
             bkg_dist = np.load("./data/"+self.bkg)
             print("Background file successfully loaded into .bkg")
             self.bkg = bkg_dist
+
+            if signal:
+                signal_dist = np.load("./data/"+self.signal)
+                print("Signal file successfully loaded into .bkg")
+                self.signal = signal_dist
+
             return
+
         except:
-            raise EnvironmentError('Is the background file missing/ created yet?')
+            raise EnvironmentError('Are your TS files missing/ created yet?')
 
 
     """
