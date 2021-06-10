@@ -795,7 +795,7 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
 
     '''
     ntrials: [int] Number of trials to run at each injection combination
-    dec: [float] Declination to test at [-np.pi/2, np.pi/2]
+    dec: [float/list/array] Declination to test at in [-np.pi/2, np.pi/2] OR declination band to test within [min_dec, max_dec]
     size: [int] Max ninj_t and ninj_c to test at
     progress: [bool] Toggles whether progress is printed out
     plt: [bool] Toggles whether or not the TC space is plotted and saved
@@ -811,10 +811,17 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
         for ninj_t in range(size):
             for ninj_c in range(size):
 
+                #if a band like [min, max] is passed in for declination, pulls uniformly from said band
+                if type(dec) == list or type(dec) == np.ndarray:
+                    assert(np.array(dec).shape[0] == 2), "Pass in a declination band as [min, max]"
+                    test_dec = np.random.uniform(*dec)
+                else:
+                    test_dec = dec
+
                 sigs = np.zeros([ntrials, len(self.Methods)])
                 for i in range(ntrials):
                     ra = np.random.uniform(0, 2*np.pi)
-                    TS = self.test_methods(ra, dec, ninj_t, ninj_c)
+                    TS = self.test_methods(ra, test_dec, ninj_t, ninj_c)
                     sigs[i] = self.calculate_sigma(TS, dec)
                 space[ninj_t, ninj_c] = np.sum([sigs >= 5], axis = 1)/ntrials
 
