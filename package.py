@@ -876,7 +876,7 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
         bkg_c = gen(100000, 3.7, 1)
 
         #makes sure any possible energy value falls within the range of interpolation
-        E_x = np.linspace(min(tracks['logE'].min(), cascs['logE'].min()), max(tracks['logE'].max(), cascs['logE'].max()), 1000)
+        E_x = np.linspace(min(sig_t['logE'].min(), sig_c['logE'].min(),bkg_t['logE'].min(),bkg_c['logE'].min()), min(sig_t['logE'].min(), max(sig_t['logE'].max(), sig_c['logE'].max(),bkg_t['logE'].max(),bkg_c['logE'].max()), 1000)
 
         #if splitting pdfs by topology for a topology aware analysis
         if split:
