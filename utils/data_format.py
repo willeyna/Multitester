@@ -17,23 +17,26 @@ names = ('ra',
          'angErr',
          'logE',
          'ow',
-         'topo')
+         'topo',
+         'sinDec')
 
 formats = ('<f8',
            '<f8',
            '<f8',
            '<f8',
            '<f8',
-           '<i8')
+           '<i8',
+           '<f8')
 
 dtype_new = np.dtype({'names': names, 'formats': formats})
 
 for name in names:
     #checks if all needed fields are in your data
-    if name not in data.dtype.names and name != 'topo':
+    if name not in data.dtype.names and name != 'topo' and name != 'sinDec':
         raise ValueError(f'Your data is missing {name}!')
-    selected = pd.DataFrame(data)[[*names[:-1]]]
+    selected = pd.DataFrame(data)[[*names[:-2]]]
     selected['topo'] = topo 
+    selected['sinDec'] = np.sin(selected['dec'])
     selected = selected.to_records(index = False)
     clean = np.array(selected.astype(dtype_new))
 
