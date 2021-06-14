@@ -22,7 +22,7 @@ bkg_TS.sort(axis = 0);
 
 if tester.signal_trials:
     #compare signal trials to this background sample
-    signal = np.load('./data/'+tester.signal)
+    signal = np.load('./data/'+ tester.name + '/' +tester.signal)
     signal_TS = signal['TS']
     sig_dec = signal['dec']
 

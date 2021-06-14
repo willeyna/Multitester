@@ -19,4 +19,4 @@ except:
 p_value = pv_sum/total_nin_bin
 sigma = pd2sig(p_value)
 
-np.savez('./data/' + tester.name + "_SIGMA.npz", sigma = sigma, dec = signal['dec'])
+np.savez('./data/' + tester.name + '/' + tester.name + "_SIGMA.npz", sigma = sigma, dec = signal['dec'])
