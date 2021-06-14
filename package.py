@@ -343,10 +343,10 @@ def RLLH(tracks,cascades,ra,dec, args):
 
     return TS, ns
 
-# ROB'S MULTIMAP METHOD WITHOUT Energy
+# ROB'S MULTIMAP METHOD WITH Energy
 def MM(tracks, cascades, ra, dec, args):
-    St =  evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']], [ra,dec])
-    Sc = evPSFd([cascades['ra'],cascades['dec'],cascades['angErr']], [ra,dec])
+    St =  evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']], [ra,dec]) * args['Est'](tracks['logE'])
+    Sc = evPSFd([cascades['ra'],cascades['dec'],cascades['angErr']], [ra,dec]) * args['Esc'](cascades['logE'])
     TS = (np.sum(St)/tracks.shape[0]) * (np.sum(Sc) / cascades.shape[0])
     return TS,
 
@@ -432,12 +432,12 @@ def LLH0(tracks, cascades, ra, dec, args):
 
     #in case the band is empty
     if nev == 0:
-        return 0,0
+        return 0,0,0,0
 
     ns = np.arange(0,nev)
-    B = (1/(2*np.pi)) * np.exp(args['bkg_spline'](evs['dec']))
+    B = (1/(2*np.pi)) * args['B'](evs['dec']) * args['Eb'](evs['logE'])
 
-    S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
+    S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec]) * args['Es'](evs['logE'])
 
     nfit, sfit = np.meshgrid(ns, S)
     nfit, bfit = np.meshgrid(ns, B)
@@ -448,7 +448,7 @@ def LLH0(tracks, cascades, ra, dec, args):
 
     TS = 2*(maxllh - np.sum(np.log(B)))
 
-    return TS, injected
+    return TS, injected, lsky, nev
 
 
 class multi_tester():
@@ -516,6 +516,8 @@ class multi_tester():
         #status on whether the program has been run for this object
         self.ran = False
         self.name = "_".join(self.Methods)
+
+        print('Initialization complete.')
         return
 
     def __repr__(self):
