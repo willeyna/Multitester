@@ -21,10 +21,6 @@ params = np.array([[ 7.83668562e+13, -2.29461080e+00],
 
 # MISC UTILITY FUNCTIONS ---
 
-#composes two functions
-def compose(f, g):
-    return lambda x: f(g(x))
-
 #used in kent dist; spherical dot product
 def sph_dot(th1,th2,phi1,phi2):
     return np.sin(th1)*np.sin(th2)*np.cos(phi1-phi2) + np.cos(th1)*np.cos(th2)
@@ -187,7 +183,7 @@ def LLH(tracks,cascades, ra, dec, args):
     if nev == 0:
         return 0,0
 
-    B = (1/(2*np.pi)) * args['B'](evs['sinDec']) * args['Eb'](evs['logE'])
+    B = (1/(2*np.pi)) * np.exp(args['B'](evs['sinDec'])) * args['Eb'](evs['logE'])
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec]) * args['Es'](evs['logE'])
 
     fun = lambda n, S, B: -np.sum(np.log( (((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B))))
@@ -252,8 +248,8 @@ def TA(tracks,cascades, ra, dec, args):
     nev = evs.shape[0]
 
     #computes track and cascade signal and background terms to be used in a combined LLH search
-    track_B = (1/(2*np.pi)) * args['Bt'](tracks['sinDec']) * args['Ebt'](tracks['logE']) * 0.884
-    casc_B = (1/(2*np.pi)) * args['Bc'](cascades['sinDec']) * args['Ebc'](cascades['logE']) * 0.116
+    track_B = (1/(2*np.pi)) * np.exp(args['Bt'](tracks['sinDec'])) * args['Ebt'](tracks['logE']) * 0.884
+    casc_B = (1/(2*np.pi)) * np.exp(args['Bc'](cascades['sinDec'])) * args['Ebc'](cascades['logE']) * 0.116
     B = np.concatenate([track_B, casc_B])
 
     track_S = evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']], [ra,dec]) * args['Est'](tracks['logE']) * 0.29
@@ -876,7 +872,7 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
         bkg_c = gen(100000, 3.7, 1)
 
         #makes sure any possible energy value falls within the range of interpolation
-        E_x = np.linspace(min(sig_t['logE'].min(), sig_c['logE'].min(),bkg_t['logE'].min(),bkg_c['logE'].min()), 
+        E_x = np.linspace(min(sig_t['logE'].min(), sig_c['logE'].min(),bkg_t['logE'].min(),bkg_c['logE'].min()),
                         max(sig_t['logE'].max(), sig_c['logE'].max(),bkg_t['logE'].max(),bkg_c['logE'].max()), 1000)
 
         #if splitting pdfs by topology for a topology aware analysis
@@ -926,8 +922,8 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
             Ebc = InterpolatedUnivariateSpline(E_x, (gaussian_kde(bkg_c['logE'])(E_x)), k = 3)
             print("Split topology energy splines created")
 
-            self.args['Bt'] = compose(np.exp, Bt)
-            self.args['Bc'] = compose(np.exp, Bc)
+            self.args['Bt'] = Bt
+            self.args['Bc'] = Bc
             self.args['Est'] = Est
             self.args['Ebt'] = Ebt
             self.args['Esc'] = Esc
@@ -953,6 +949,6 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
 
             print("Energy splines created")
 
-            self.args['B'] = compose(np.exp, B)
+            self.args['B'] = B
             self.args['Es'] = Es
             self.args['Eb'] = Eb
