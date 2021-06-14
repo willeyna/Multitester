@@ -209,8 +209,8 @@ def LLH_DD(tracks,cascades, ra, dec, args):
     nev = evs.shape[0]
 
     #gets an array of the band number each event is in
-    track_bands = np.argmax(np.array([np.logical_and(tracks['dec'] >= band[0],tracks['dec'] < band[1]) for band in tester.dec_bands]), axis = 0)
-    cascade_bands = np.argmax(np.array([np.logical_and(cascades['dec'] >= band[0],cascades['dec'] < band[1]) for band in tester.dec_bands]), axis = 0)
+    track_bands = np.argmax(np.array([np.logical_and(tracks['dec'] >= band[0],tracks['dec'] < band[1]) for band in args['dec_bands']]), axis = 0)
+    cascade_bands = np.argmax(np.array([np.logical_and(cascades['dec'] >= band[0],cascades['dec'] < band[1]) for band in args['dec_bands']]), axis = 0)
 
     #energyless B,S terms
     track_B = (1/(2*np.pi)) * args['Bt'](tracks['dec']) * 0.884
@@ -484,7 +484,7 @@ class multi_tester():
                     assert(not (band[1] > testband[0] and band[1] < testband[1])), "Your declination bands either overlap or are in an unsupported format."
         dec_bands = (np.array(dec_bands))
         self.dec_bands = dec_bands
-
+     
         #list of method names exactly as they are written in the package (ex "LLH_detector")
         self.Methods = methods
 
@@ -494,7 +494,7 @@ class multi_tester():
                 raise ValueError("Specify your desired band width for use in LLH-dependent functions")
 
         self.args = args
-
+        self.args['dec_bands'] = dec_bands
         print("Initialization in progress...")
 
         #methods that do not rely on any topological information have split = False
