@@ -500,11 +500,10 @@ class multi_tester():
         #methods that do not rely on any topological information have split = False
         if 'LLH' in self.Methods or 'LLH0' in self.Methods:
             self.create_pdfs(split = False)
+
         #methods that want split topology pdfs
-        if 'TA' in self.Methods:
+        if 'TA' in self.Methods or 'MM' in self.Methods:
             self.create_pdfs(split = True)
-        # if 'LLH_DD' in self.Methods:
-        #     self.create_pdfs(split = True, dec_dep = True)
 
 
         #number of mc background tracks and cascades to create background TS for and test with
@@ -855,6 +854,7 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
                 plt.contourf(space[:,:,k], origin = 'lower')
                 plt.xlabel("Injected Tracks")
                 plt.ylabel("Injected Cascades")
+                plt.colorbar()
                 plt.title("Sensitivity for Topologically Varied Injections: " + self.Methods[k])
                 plt.savefig('./plots/TC_SPACE_' + self.name + '_' + self.Methods[k])
 
@@ -887,7 +887,7 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
             Bt = InterpolatedUnivariateSpline(dec_x, (gaussian_kde(tracks['dec'])(dec_x)), k = 3)
             Bc = InterpolatedUnivariateSpline(dec_x, (gaussian_kde(cascs['dec'])(dec_x)), k = 3)
 
-            print("Background spatial splines created")
+            print("Split topology background spatial splines created")
             # if dec_dep:
             #
             #     #lists to store the splines for each dec band
@@ -926,7 +926,7 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
 
             Esc = InterpolatedUnivariateSpline(E_x, (gaussian_kde(sig_c['logE'])(E_x)), k = 3)
             Ebc = InterpolatedUnivariateSpline(E_x, (gaussian_kde(bkg_c['logE'])(E_x)), k = 3)
-            print("Energy splines created")
+            print("Split topology energy splines created")
 
             self.args['Bt'] = Bt
             self.args['Bc'] = Bc
