@@ -21,6 +21,10 @@ params = np.array([[ 7.83668562e+13, -2.29461080e+00],
 
 # MISC UTILITY FUNCTIONS ---
 
+#composes two functions
+def compose(f, g):
+    return lambda x: f(g(x))
+
 #used in kent dist; spherical dot product
 def sph_dot(th1,th2,phi1,phi2):
     return np.sin(th1)*np.sin(th2)*np.cos(phi1-phi2) + np.cos(th1)*np.cos(th2)
@@ -183,7 +187,7 @@ def LLH(tracks,cascades, ra, dec, args):
     if nev == 0:
         return 0,0
 
-    B = (1/(2*np.pi)) * args['B'](evs['dec']) * args['Eb'](evs['logE'])
+    B = (1/(2*np.pi)) * args['B'](evs['sinDec']) * args['Eb'](evs['logE'])
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec]) * args['Es'](evs['logE'])
 
     fun = lambda n, S, B: -np.sum(np.log( (((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B))))
@@ -248,8 +252,8 @@ def TA(tracks,cascades, ra, dec, args):
     nev = evs.shape[0]
 
     #computes track and cascade signal and background terms to be used in a combined LLH search
-    track_B = (1/(2*np.pi)) * args['Bt'](tracks['dec']) * args['Ebt'](tracks['logE']) * 0.884
-    casc_B = (1/(2*np.pi)) * args['Bc'](cascades['dec']) * args['Ebc'](cascades['logE']) * 0.116
+    track_B = (1/(2*np.pi)) * args['Bt'](tracks['sinDec']) * args['Ebt'](tracks['logE']) * 0.884
+    casc_B = (1/(2*np.pi)) * args['Bc'](cascades['sinDec']) * args['Ebc'](cascades['logE']) * 0.116
     B = np.concatenate([track_B, casc_B])
 
     track_S = evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']], [ra,dec]) * args['Est'](tracks['logE']) * 0.29
@@ -409,9 +413,9 @@ def TruePrior(tracks, cascades, ra, dec, args):
 def LLH_detector0(evs, ra, dec, args):
     nev = evs.shape[0]
     ns = np.arange(0,nev)
-    B = (1/(2*np.pi)) * np.exp(args['bkg_spline'](evs['dec']))
+    B = (1/(2*np.pi)) * args['B'](evs['sinDec']) * args['Eb'](evs['logE'])
 
-    S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec])
+    S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec]) * args['Es'](evs['logE'])
     nfit, sfit = np.meshgrid(ns, S)
 
     lsky = np.log( (nfit/(nev))*sfit + (1 - nfit/(nev))*B )
@@ -435,7 +439,7 @@ def LLH0(tracks, cascades, ra, dec, args):
         return 0,0,0,0
 
     ns = np.arange(0,nev)
-    B = (1/(2*np.pi)) * args['B'](evs['dec']) * args['Eb'](evs['logE'])
+    B = (1/(2*np.pi)) * args['B'](evs['sinDec']) * args['Eb'](evs['logE'])
 
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec]) * args['Es'](evs['logE'])
 
@@ -865,10 +869,7 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
     ## Later alter to create splines for both topologies
     '''
     def create_pdfs(self, split = False):
-        #load in background data and create a background dec. dependent pdf
-        tracks = np.load("./mcdata/tracks_mc.npy")
-        cascs = np.load("./mcdata/cascade_mc.npy")
-        #creates a large sample of MC signal and background events to determine energy pdfs from
+        #creates a large sample of MC signal and background events to determine pdfs from
         sig_t = gen(100000, 2, 0)
         bkg_t = gen(100000, 3.7, 0)
         sig_c = gen(100000, 2, 1)
@@ -876,14 +877,16 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
 
         #makes sure any possible energy value falls within the range of interpolation
         E_x = np.linspace(min(tracks['logE'].min(), cascs['logE'].min()), max(tracks['logE'].max(), cascs['logE'].max()), 1000)
-        #background pdf creation based on dec dist
-        dec_x = np.linspace(-np.pi/2, np.pi/2, 1000)
 
         #if splitting pdfs by topology for a topology aware analysis
         if split:
-            #Interpolation is MUCH faster to call than the scipy kde function, so we interpoalte over the kde
-            Bt = InterpolatedUnivariateSpline(dec_x, (gaussian_kde(tracks['dec'])(dec_x)), k = 3)
-            Bc = InterpolatedUnivariateSpline(dec_x, (gaussian_kde(cascs['dec'])(dec_x)), k = 3)
+
+            #log in interpolation makes sure no pdf values are negative
+            track_hist, bins = np.histogram(bkg_t['sinDec'], density=True, bins = 10)
+            Bt = InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2., np.log(track_hist), k=3)
+
+            casc_hist, bins = np.histogram(bkg_c['sinDec'], density=True, bins = 10)
+            Bc = InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2., np.log(casc_hist), k=3)
 
             print("Split topology background spatial splines created")
             # if dec_dep:
@@ -914,10 +917,6 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
             #
             #     print("Energy splines created")
 
-            #Interpolation is MUCH faster to call than the scipy kde function, so we interpoalte over the kde
-            Bt = InterpolatedUnivariateSpline(dec_x, (gaussian_kde(tracks['dec'])(dec_x)), k = 3)
-            Bc = InterpolatedUnivariateSpline(dec_x, (gaussian_kde(cascs['dec'])(dec_x)), k = 3)
-
             #signal and background energy pdfs
             Est = InterpolatedUnivariateSpline(E_x, (gaussian_kde(sig_t['logE'])(E_x)), k = 3)
             Ebt = InterpolatedUnivariateSpline(E_x, (gaussian_kde(bkg_t['logE'])(E_x)), k = 3)
@@ -926,8 +925,8 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
             Ebc = InterpolatedUnivariateSpline(E_x, (gaussian_kde(bkg_c['logE'])(E_x)), k = 3)
             print("Split topology energy splines created")
 
-            self.args['Bt'] = Bt
-            self.args['Bc'] = Bc
+            self.args['Bt'] = compose(np.exp, Bt)
+            self.args['Bc'] = compose(np.exp, Bc)
             self.args['Est'] = Est
             self.args['Ebt'] = Ebt
             self.args['Esc'] = Esc
@@ -938,19 +937,21 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
             background = np.concatenate([bkg_t, bkg_c])
 
             #background pdf creation based on dec dist
-            decs = np.concatenate([tracks['dec'], cascs['dec']])
+            sin_decs = np.concatenate([bkg_t['sinDec'], bkg_c['sinDec']])
 
-            #Interpolation is MUCH faster to call than the scipy kde function, so we interpoalte over the kde
-            bkg_pdf = InterpolatedUnivariateSpline(dec_x, (gaussian_kde(decs)(dec_x)), k = 3)
+            #log in interpolation makes sure no pdf values are negative
+            hist, bins = np.histogram(sin_decs, density=True, bins = 10)
+            B = InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2., np.log(hist), k=3)
 
             print("Background spatial spline created")
 
+            #Interpolation is MUCH faster to call than the scipy kde function, so we interpoalte over the kde
             #signal and background energy pdfs
             Es = InterpolatedUnivariateSpline(E_x, (gaussian_kde(signal['logE'])(E_x)), k = 3)
             Eb = InterpolatedUnivariateSpline(E_x, (gaussian_kde(background['logE'])(E_x)), k = 3)
 
             print("Energy splines created")
 
-            self.args['B'] = bkg_pdf
+            self.args['B'] = compose(np.exp, B)
             self.args['Es'] = Es
             self.args['Eb'] = Eb
