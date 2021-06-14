@@ -12,6 +12,8 @@ from bisect import bisect
 from tqdm import tqdm
 import pickle
 import scipy.interpolate
+from scipy.stats import gaussian_kde
+from scipy.interpolate import InterpolatedUnivariateSpline
 
 #loads in parameters for an Energy function brought in from a plot in https://arxiv.org/pdf/1306.2309.pdf
 params = np.array([[ 7.83668562e+13, -2.29461080e+00],
@@ -482,7 +484,7 @@ class multi_tester():
                     assert(not (band[1] > testband[0] and band[1] < testband[1])), "Your declination bands either overlap or are in an unsupported format."
         dec_bands = (np.array(dec_bands))
         self.dec_bands = dec_bands
-
+     
         #list of method names exactly as they are written in the package (ex "LLH_detector")
         self.Methods = methods
 
@@ -492,7 +494,7 @@ class multi_tester():
                 raise ValueError("Specify your desired band width for use in LLH-dependent functions")
 
         self.args = args
-
+        self.args['dec_bands'] = dec_bands
         print("Initialization in progress...")
 
         #methods that do not rely on any topological information have split = False
