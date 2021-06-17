@@ -694,12 +694,12 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
     '''
     def load_TS(self, signal):
         try:
-            bkg_dist = np.load("./data/"+self.bkg)
+            bkg_dist = np.load("./data/" + self.name + '/' + self.bkg)
             print("Background file successfully loaded into .bkg")
             self.bkg = bkg_dist
 
             if signal:
-                signal_dist = np.load("./data/"+self.signal)
+                signal_dist = np.load("./data/"+ self.name + '/' + self.signal)
                 print("Signal file successfully loaded into .bkg")
                 self.signal = signal_dist
 
