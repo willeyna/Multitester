@@ -528,7 +528,7 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
 Ran with filename: {self.name} 
             '''
             try:
-              desc += 'testing an injection of {self.ninj_t} tracks and {self.ninj_c} cascades.'
+              desc += f'testing an injection of {self.ninj_t} tracks and {self.ninj_c} cascades.'
             except:
               pass
         else:
