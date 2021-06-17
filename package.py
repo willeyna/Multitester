@@ -525,8 +525,12 @@ class multi_tester():
         if self.ran:
             desc = f'''Multi-tester object using the following methods: {self.Methods}
 Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
-Ran with filename: {self.name} testing an injection of {self.ninj_t} tracks and {self.ninj_c} cascades.
+Ran with filename: {self.name} 
             '''
+            try:
+              desc += 'testing an injection of {self.ninj_t} tracks and {self.ninj_c} cascades.'
+            except:
+              pass
         else:
             desc = f'''Multi-tester object using the following methods: {self.Methods}
 Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
