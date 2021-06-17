@@ -848,7 +848,7 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
                 for i in range(ntrials):
                     ra = np.random.uniform(0, 2*np.pi)
                     TS = self.test_methods(ra, test_dec, ninj_t, ninj_c)
-                    sigs[i] = self.calculate_sigma(TS, dec)
+                    sigs[i] = self.calculate_sigma(TS, test_dec)
                 space[ninj_t, ninj_c] = np.sum([sigs >= 5], axis = 1)/ntrials
 
                 if progress:
