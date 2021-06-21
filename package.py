@@ -452,6 +452,58 @@ def LLH0(tracks, cascades, ra, dec, args):
 
     return TS, injected, lsky, nev
 
+def TAPrior(tracks, cascades, ra, dec, args):
+    try:
+        TC = args['Prior']
+    except:
+        print("Prior array missing from args!")
+        return
+
+#     if args['delta_ang'] != 0:
+#         #only considers events within a delta_ang rad declination band around the location
+#         mask = np.logical_and(tracks["dec"] > dec - args['delta_ang'], tracks["dec"] < dec + args['delta_ang'])
+#         tracks = tracks[mask]
+#         ntrack = tracks.shape[0]
+
+    evs = np.concatenate([tracks,cascades])
+    nev = evs.shape[0]
+
+    #in case the band is empty
+    if nev == 0:
+        return 0,0
+
+    #computes track and cascade signal and background terms to be used in a combined LLH search
+    track_B = (1/(2*np.pi))  * args['Ebt'](tracks['logE']).astype('float128') * 0.884 * np.exp(args['Bt'](tracks['sinDec'])).astype('float128')
+    casc_B = (1/(2*np.pi))   * args['Ebc'](cascades['logE']).astype('float128') * 0.116 * np.exp(args['Bc'](cascades['sinDec'])).astype('float128')
+    B = np.concatenate([track_B, casc_B])
+
+    track_S = evPSFd([tracks['ra'],tracks['dec'],tracks['angErr']], [ra,dec]).astype('float128') * args['Est'](tracks['logE']).astype('float128') * 0.29
+    casc_S = evPSFd([cascades['ra'],cascades['dec'],cascades['angErr']], [ra,dec]).astype('float128') * args['Esc'](cascades['logE']).astype('float128') * 0.71
+    S = np.concatenate([track_S, casc_S])
+
+    # LLH calculations/maximizations
+    fun = lambda n, S, B: -np.sum(np.log( ((n/(S.shape[0]))*S) + ((1 - n/(S.shape[0]))*B) ))
+    opt = minimize(fun, nev/2, (S,B), bounds = ((0,None),))
+    n_sig = float(opt.x)
+    b = np.ones(1).astype('float128') * opt.fun
+    maxllh = np.exp(-b)
+
+    # null likelihood
+    L0 = np.exp(np.sum(np.log(B)))
+
+    # prior calculation
+    if args['delta_ang'] != 0:
+        if ntrack == 0:
+            nst = 0
+    else:
+        nst = LLH_detector0(tracks, ra, dec, args = args)[1]
+    nsc = LLH_detector0(cascades, ra, dec, args = args)[1]
+    prior = TC[nst,nsc].astype('float128')
+
+    alpha = 1-(1/prior)
+
+    return (np.log(maxllh) - np.log(maxllh - alpha*L0))
+
 
 class multi_tester():
 
@@ -484,7 +536,7 @@ class multi_tester():
                     assert(not (band[1] > testband[0] and band[1] < testband[1])), "Your declination bands either overlap or are in an unsupported format."
         dec_bands = (np.array(dec_bands))
         self.dec_bands = dec_bands
-     
+
         #list of method names exactly as they are written in the package (ex "LLH_detector")
         self.Methods = methods
 
@@ -525,7 +577,7 @@ class multi_tester():
         if self.ran:
             desc = f'''Multi-tester object using the following methods: {self.Methods}
 Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
-Ran with filename: {self.name} 
+Ran with filename: {self.name}
             '''
             try:
               desc += f'testing an injection of {self.ninj_t} tracks and {self.ninj_c} cascades.'
