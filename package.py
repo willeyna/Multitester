@@ -411,18 +411,19 @@ def TruePrior(tracks, cascades, ra, dec, args):
 def LLH_detector0(evs, ra, dec, args):
     nev = evs.shape[0]
     ns = np.arange(0,nev)
-    B = (1/(2*np.pi)) * args['B'](evs['sinDec']) * args['Eb'](evs['logE'])
+    B = (1/(2*np.pi)) * np.exp(args['B'](evs['sinDec'])) * args['Eb'](evs['logE'])
 
     S = evPSFd([evs['ra'],evs['dec'],evs['angErr']], [ra,dec]) * args['Es'](evs['logE'])
     nfit, sfit = np.meshgrid(ns, S)
+    nfit, bfit = np.meshgrid(ns, B)
 
-    lsky = np.log( (nfit/(nev))*sfit + (1 - nfit/(nev))*B )
+    lsky = np.log( (nfit/(nev))*sfit + (1 - nfit/(nev))*bfit )
     injected = (np.argmax(np.sum(lsky,axis=0)))
     maxllh = np.max(np.sum(lsky,axis=0))
 
     TS = 2*(maxllh - nev*np.log(B))
 
-    return maxllh, injected, TS
+    return TS, injected, maxllh, lsky
 
 def LLH0(tracks, cascades, ra, dec, args):
     if args['delta_ang'] != 0:
