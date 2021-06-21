@@ -551,11 +551,11 @@ class multi_tester():
         print("Initialization in progress...")
 
         #methods that do not rely on any topological information have split = False
-        if 'LLH' in self.Methods or 'LLH0' in self.Methods:
+        if len({'LLH', 'LLH0', "TruePrior", 'TAPrior'}.intersection(methods)) != 0:
             self.create_pdfs(split = False)
 
         #methods that want split topology pdfs
-        if 'TA' in self.Methods or 'MM' in self.Methods:
+        if len({'TA', 'MM'}.intersection(methods)) != 0:
             self.create_pdfs(split = True)
 
 
