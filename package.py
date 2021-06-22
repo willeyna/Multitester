@@ -585,10 +585,10 @@ class multi_tester():
 Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
 Ran with filename: {self.name}
             '''
-            try:
-              desc += f'\nTesting an injection of {self.ninj_t} tracks and {self.ninj_c} cascades.'
-            except:
-              pass
+        try:
+          desc += f'\nTesting an injection of {self.ninj_t} tracks and {self.ninj_c} cascades.'
+        except:
+          pass
 
         return desc
 
