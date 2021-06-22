@@ -564,30 +564,32 @@ class multi_tester():
         self.track_count = tracks
         self.cascade_count = cascades
 
+        #name data
+        self.timetag = ("".join(filter(str.isdigit, str(datetime.datetime.now()))))
+        self.pkl = 'multitester_' + self.timetag + '.pkl'
+        self.name = "multitester_" + self.timetag
+
         #resolution of healpy grid
         self.NSIDE = 2**resolution
         self.NPIX = hp.nside2npix(self.NSIDE)
-        #status on whether the program has been run for this object
-        self.ran = False
-        self.name = "_".join(self.Methods)
+
+        #creates the data directory for this test
+        os.mkdir('./data/' + self.name)
+        os.mkdir('./plots/' + self.name)
 
         print('Initialization complete.')
         return
 
     def __repr__(self):
-        if self.ran:
-            desc = f'''Multi-tester object using the following methods: {self.Methods}
+        desc = f'''Multi-tester object using the following methods: {self.Methods}
 Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
 Ran with filename: {self.name}
             '''
             try:
-              desc += f'testing an injection of {self.ninj_t} tracks and {self.ninj_c} cascades.'
+              desc += f'\nTesting an injection of {self.ninj_t} tracks and {self.ninj_c} cascades.'
             except:
               pass
-        else:
-            desc = f'''Multi-tester object using the following methods: {self.Methods}
-Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
-            '''
+
         return desc
 
     '''
@@ -626,15 +628,10 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
             raise ValueError(f'Signal trial count specified, but no events injected')
             return
 
-        self.timetag = ("".join(filter(str.isdigit, str(datetime.datetime.now()))))
-        self.pkl = 'multitester_' + self.timetag + '.pkl'
-
         #number of events per job
         self.filecount = filecount
         self.nper= bkg_trials//filecount
         #write bkg sbatchs
-        filnam="multitester_" + self.timetag
-        self.name = filnam
         for i in range(filecount):
             filstr=filnam+"_"+str(i)+".sb"
             f = open('./templates/bkgjob.txt', 'r')
@@ -724,10 +721,6 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
 
         self.bkg = bkg_filename
         self.signal = signal_filename
-        self.ran = True
-
-        #creates the data directory for this test
-        os.mkdir('./data/' + self.name)
 
         #saves this object in a pkl file to be read in by other scripts
         dbfile = open('./Testers/multitester_' + self.timetag + '.pkl', 'wb+')
@@ -746,7 +739,7 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
             Only let signal be True if signal generation was done in run() as well
 
     Run this after the BKG creation process is finished.
-    Loads in the background TS distribution created with run() into self.bkg
+    Loads in the background TS distribution created with run() into self.bkg and splits bkg into dec bands for hypothesis testing
     TS can then be found with self.bkg['TS']
     '''
     def load_TS(self, signal):
@@ -755,11 +748,18 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
             print("Background file successfully loaded into .bkg")
             self.bkg = bkg_dist
 
+            print("Dividing background into declination bands...")
+            #divides TS distribution into declination bands based on self.dec_bands for hypothesis testing
+            self.bkg_bands = []
+            for band in range(self.dec_bands.shape[0]):
+                self.bkg_bands.append(np.column_stack([(self.bkg['TS'][:,j][np.logical_and(self.bkg['dec'][:,j] >= self.dec_bands[band][0],self.bkg['dec'][:,j] < self.dec_bands[band][1])]) for j in range(len(self.Methods))]))
+
             if signal:
                 signal_dist = np.load("./data/"+ self.name + '/' + self.signal)
                 print("Signal file successfully loaded into .bkg")
                 self.signal = signal_dist
 
+            print("Data loading complete.")
             return
 
         except:
@@ -792,6 +792,8 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
     TS sky array is saved in self.sky and can be shown using show_sky
     '''
     def create_sky(self, ninj_t = 0, ninj_c = 0, inj_ra = np.random.uniform(0,2*np.pi), inj_dec = np.random.uniform(-np.pi/2,np.pi/2), bar = False):
+        self.sky_ninj_t = ninj_t
+        self.sky_ninj_c = ninj_c
         #angle array of every point on the sky
         m = np.arange(self.NPIX)
         theta, phi = np.deg2rad(hp.pix2ang(nside=self.NSIDE, ipix=m, lonlat = True))
@@ -812,15 +814,16 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
         return self.sky
 
     '''
-    Saves a mollwide view of each method's TS sky in ./plots
+    Saves a mollwide view of each method's TS sky in ./plots/name/
     '''
     def show_sky(self, inline = False):
-        for i in range(self.sky.shape[1]):
+        for i in range(len(self.Methods)):
             hp.mollview(self.sky[:,i])
+            plt.title(f"TS Sky for {self.Methods[i]}- {self.track_count} track {self.cascade_count} casc background \n {self.sky_ninj_t}, {self.sky_ninj_c} injection")
             if inline:
                 plt.show()
             else:
-                plt.savefig('./plots/SKY' + self.name+ self.Methods[i])
+                plt.savefig('./plots/' + self.name + '/' + 'SKY_' + self.Methods[i])
         return
 
     """
@@ -831,19 +834,33 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
     *Must have loaded in the background distribution*
     Returns: Significance array
     """
-    #Not vectorized
+    #Not vectorized due to p-value using unvectorized bisect sort algo
     def calculate_sigma(self, TS, dec):
-        TS = np.array(TS).reshape(-1)
-
+        TS = np.array(TS, dtype=float)
+        dec = np.array(dec, dtype=float)
+        #checks to make sure bkg is loaded into the object
         if type(self.bkg) == type(''):
             raise AttributeError("Load in your TS distributions first.")
-        sigma = np.zeros(len(self.Methods))
 
-        band = np.argmax(np.array([np.logical_and(dec >= band[0],dec < band[1]) for band in self.dec_bands]))
-        for j in range(len(self.Methods)):
-            #generates the array of every background event in the declination band of the signal trial
-            band_bkg = self.bkg['TS'][:,j][np.logical_and(self.bkg['dec'][:,j] >= self.dec_bands[band][0],self.bkg['dec'][:,j] < self.dec_bands[band][1])]
-            sigma[j] = p_value(TS[j],band_bkg)
+        if TS.shape != dec.shape:
+            raise ValueError("Makes sure your TS and declination arrays match!")
+
+        #handles the single event case where you pass in [Method1 TS, Method2 TS, ...] and [Method1 dec, Method2 dec, ...]
+        if len(TS.shape) < 2 and len(self.Methods) > 1:
+            TS = TS.reshape(1,-1)
+            dec = dec.reshape(1,-1)
+        #handles the single method case where you pass in [TS1, TS2, ...] and [dec1, dec2, ...]
+        elif len(TS.shape) < 2 and len(self.Methods) == 1:
+            TS = TS.reshape(-1,1)
+            dec = dec.reshape(-1,1)
+
+        sigma = np.zeros_like(TS)
+        for i in range(TS.shape[0]):
+            for j in range(TS.shape[1]):
+                #calculates the band number of the given declination
+                band = np.argmax(np.array([np.logical_and(dec[i,j] >= band[0], dec[i,j] < band[1]) for band in self.dec_bands]))
+                #calculates p_values by comparing TS to all bkg TS within the same declination band
+                sigma[i,j] = p_value(TS[i,j], self.bkg_bands[band][:,j])
 
         return pd2sig(sigma)
 
@@ -882,38 +899,69 @@ Background tracks: {self.track_count} Background Cascades: {self.cascade_count}
     Tests each method at all injection combinations within [size,size] and returns an array of the percent of
         events that measure above 5sigma
     '''
-    def TC_space(self, ntrials, dec, size = 10, progress = False, plot = False):
+    def TC_space(self, ntrials, dec, size = 10, progress = False, plot = False, inline = False):
 
         space = np.zeros([size,size, len(self.Methods)])
 
         #TC space signifigance comparison
-        for ninj_t in range(size):
-            for ninj_c in range(size):
+        if progress:
+            for ninj_t in tqdm(range(size)):
+                for ninj_c in range(size):
 
-                #if a band like [min, max] is passed in for declination, pulls uniformly from said band
-                if type(dec) == list or type(dec) == np.ndarray:
-                    assert(np.array(dec).shape[0] == 2), "Pass in a declination band as [min, max]"
-                    test_dec = np.random.uniform(*dec)
-                else:
-                    test_dec = dec
+                    #if a band like [min, max] is passed in for declination, pulls uniformly from said band
+                    if type(dec) == list or type(dec) == np.ndarray:
+                        assert(np.array(dec).shape[0] == 2), "Pass in a declination band as [min, max]"
+                        test_dec = np.random.uniform(*dec)
+                    else:
+                        test_dec = dec
 
-                sigs = np.zeros([ntrials, len(self.Methods)])
-                for i in range(ntrials):
-                    ra = np.random.uniform(0, 2*np.pi)
-                    TS = self.test_methods(ra, test_dec, ninj_t, ninj_c)
-                    sigs[i] = self.calculate_sigma(TS, test_dec)
-                space[ninj_t, ninj_c] = np.sum([sigs >= 5], axis = 1)/ntrials
+                    TS = np.zeros([ntrials, len(self.Methods)])
+                    TSdec = np.ones_like(TS)*test_dec
+                    for i in range(ntrials):
+                        ra = np.random.uniform(0, 2*np.pi)
+                        TS[i] = self.test_methods(ra, test_dec, ninj_t, ninj_c)
 
-                if progress:
-                    print(f"{ninj_t}.{int(10*ninj_c/size)}/{size}", end = '\r')
+                    sigs = self.calculate_sigma(TS, TSdec)
+                    space[ninj_t, ninj_c] = np.sum([sigs >= 5], axis = 1)/ntrials
+        else:
+            for ninj_t in (range(size)):
+                for ninj_c in range(size):
+
+                    #if a band like [min, max] is passed in for declination, pulls uniformly from said band
+                    if type(dec) == list or type(dec) == np.ndarray:
+                        assert(np.array(dec).shape[0] == 2), "Pass in a declination band as [min, max]"
+                        test_dec = np.random.uniform(*dec)
+                    else:
+                        test_dec = dec
+
+                    TS = np.zeros([ntrials, len(self.Methods)])
+                    TSdec = np.ones_like(TS)*test_dec
+                    for i in range(ntrials):
+                        ra = np.random.uniform(0, 2*np.pi)
+                        TS[i] = self.test_methods(ra, test_dec, ninj_t, ninj_c)
+
+                    sigs = self.calculate_sigma(TS, TSdec)
+                    space[ninj_t, ninj_c] = np.sum([sigs >= 5], axis = 1)/ntrials
+
         if plot:
             for k in range(len(self.Methods)):
-                plt.contourf(space[:,:,k], origin = 'lower')
+                TCset = plt.contourf(space[:,:,k], levels = np.linspace(0,1,21))
                 plt.xlabel("Injected Tracks")
                 plt.ylabel("Injected Cascades")
                 plt.colorbar()
-                plt.title("Sensitivity for Topologically Varied Injections: " + self.Methods[k])
-                plt.savefig('./plots/TC_SPACE_' + self.name + '_' + self.Methods[k])
+                try:
+                    p1 = TCset.collections[10].get_paths()[0]
+                    px,py= p1.vertices[:,0], p1.vertices[:,1]
+                    plt.plot(px,py, color = 'red', label = f'{tester.Methods[k]} Discovery Potential', linestyle = 'dashed')
+                    plt.legend()
+                except:
+                    print(f"ERROR: 50% percentile missing from {self.Methods[k]}")
+
+                plt.title(f"% of Injections Above 5sigma [{self.track_count},{self.cascade_count}] bkg: " + self.Methods[k])
+                if not inline:
+                    plt.savefig('./plots/' + self.name + '/' + 'TC_' + self.Methods[k])
+                else:
+                    plt.show()
 
         return space
 
