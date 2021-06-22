@@ -952,7 +952,7 @@ Ran with filename: {self.name}
                 try:
                     p1 = TCset.collections[10].get_paths()[0]
                     px,py= p1.vertices[:,0], p1.vertices[:,1]
-                    plt.plot(px,py, color = 'red', label = f'{tester.Methods[k]} Discovery Potential', linestyle = 'dashed')
+                    plt.plot(px,py, color = 'red', label = f'{self.Methods[k]} Discovery Potential', linestyle = 'dashed')
                     plt.legend()
                 except:
                     print(f"ERROR: 50% percentile missing from {self.Methods[k]}")
