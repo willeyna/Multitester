@@ -946,8 +946,8 @@ Ran with filename: {self.name}
         if plot:
             for k in range(len(self.Methods)):
                 TCset = plt.contourf(space[:,:,k], levels = np.linspace(0,1,21))
-                plt.xlabel("Injected Tracks")
-                plt.ylabel("Injected Cascades")
+                plt.ylabel("Injected Tracks")
+                plt.xlabel("Injected Cascades")
                 plt.colorbar()
                 try:
                     p1 = TCset.collections[10].get_paths()[0]
