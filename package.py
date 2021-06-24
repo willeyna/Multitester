@@ -960,6 +960,7 @@ Ran with filename: {self.name}
                 plt.title(f"% of Injections Above 5sigma [{self.track_count},{self.cascade_count}] bkg: " + self.Methods[k])
                 if not inline:
                     plt.savefig('./plots/' + self.name + '/' + 'TC_' + self.Methods[k])
+                    plt.clf()
                 else:
                     plt.show()
 
