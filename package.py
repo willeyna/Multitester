@@ -633,7 +633,7 @@ Ran with filename: {self.name}
         self.nper= bkg_trials//filecount
         #write bkg sbatchs
         for i in range(filecount):
-            filstr=filnam+"_"+str(i)+".sb"
+            filstr=self.name+"_"+str(i)+".sb"
             f = open('./templates/bkgjob.txt', 'r')
             filetxt = f.read().format(time = runtime, mem = mem, tasknm = 'multitester_' + self.timetag, obj = self.pkl, tag = str(i))
             f.close()
@@ -643,17 +643,17 @@ Ran with filename: {self.name}
 
         #write repackage sbatch
         f = open('./templates/repack.txt', 'r')
-        filetxt = f.read().format(tasknm = 'multitester_' + self.timetag + '_REPACK', obj = self.pkl)
+        filetxt = f.read().format(tasknm = self.name + '_REPACK', obj = self.pkl)
         f.close()
-        f = open('./working/repack_' + filnam + '.sb', 'w+')
+        f = open('./working/repack_' + self.name + '.sb', 'w+')
         f.write(filetxt)
         f.close()
 
         #write clean script sbatch
         f = open('./templates/clean.txt', 'r')
-        filetxt = f.read().format(tasknm = 'multitester_' + self.timetag + '_CLEAN', obj = self.pkl)
+        filetxt = f.read().format(tasknm = self.name + '_CLEAN', obj = self.pkl)
         f.close()
-        f = open('./working/clean_' + filnam + '.sb', 'w+')
+        f = open('./working/clean_' + self.name + '.sb', 'w+')
         f.write(filetxt)
         f.close()
 
@@ -673,17 +673,17 @@ Ran with filename: {self.name}
 
             #write signal sbatch
             f = open('./templates/signaljob.txt', 'r')
-            filetxt = f.read().format(time = runtime, mem = mem, tasknm = 'multitester_signal_' + self.timetag, obj = self.pkl)
+            filetxt = f.read().format(time = runtime, mem = mem, tasknm = 'multitester_signal_' + self.name, obj = self.pkl)
             f.close()
-            f = open('./working/signal_' + filnam + '.sb', 'w+')
+            f = open('./working/signal_' + self.name + '.sb', 'w+')
             f.write(filetxt)
             f.close()
 
             #write signal summation sbatch
             f = open('./templates/signal_summation.txt', 'r')
-            filetxt = f.read().format(time = runtime, mem = mem, tasknm = 'multitester_' + self.timetag + '_SIGNAL', obj = self.pkl)
+            filetxt = f.read().format(time = runtime, mem = mem, tasknm = self.name + '_SIGNAL', obj = self.pkl)
             f.close()
-            f = open('./working/sigsum_' + filnam + '.sb', 'w+')
+            f = open('./working/sigsum_' + self.name + '.sb', 'w+')
             f.write(filetxt)
             f.close()
 
@@ -694,15 +694,15 @@ Ran with filename: {self.name}
         jstr = ''
 
         for i in range(filecount):
-            joblist += f'JOB J{i} ./working/{filnam}_{i}.sb\n'
+            joblist += f'JOB J{i} ./working/{self.name}_{i}.sb\n'
             jstr += f'J{i} '
-        joblist += f'JOB R ./working/repack_{filnam}.sb\n'
+        joblist += f'JOB R ./working/repack_{self.name}.sb\n'
         if clean:
-            joblist += f'JOB CLEAN ./working/clean_{filnam}.sb\n'
+            joblist += f'JOB CLEAN ./working/clean_{self.name}.sb\n'
 
         if signal_trials:
-            joblist += f'JOB S ./working/signal_{filnam}.sb\n'
-            joblist += f'JOB SS ./working/sigsum_{filnam}.sb\n'
+            joblist += f'JOB S ./working/signal_{self.name}.sb\n'
+            joblist += f'JOB SS ./working/sigsum_{self.name}.sb\n'
 
             contents = joblist + '\nPARENT S CHILD ' + jstr + '\nPARENT ' + jstr + 'CHILD R SS'
             if clean:
@@ -712,24 +712,24 @@ Ran with filename: {self.name}
             if clean:
                 contents += '\nPARENT R CHILD CLEAN'
 
-        fout=open(f'./working/{filnam}.sdag',"w")
+        fout=open(f'./working/{self.name}.sdag',"w")
         fout.write(contents)
         fout.close()
 
-        bkg_filename = 'multitester_' + self.timetag + "_BKG.npz"
-        signal_filename = 'multitester_' + self.timetag + "_SIGNAL.npz"
+        bkg_filename = self.name + "_BKG.npz"
+        signal_filename = self.name  + "_SIGNAL.npz"
 
         self.bkg = bkg_filename
         self.signal = signal_filename
 
         #saves this object in a pkl file to be read in by other scripts
-        dbfile = open('./Testers/multitester_' + self.timetag + '.pkl', 'wb+')
+        dbfile = open('./Testers/' + self.pkl , 'wb+')
         pickle.dump(self, dbfile)
         dbfile.close()
 
         #start the program
         if not dryrun:
-            os.system(f'python2 sdag.py ./working/{filnam}.sdag')
+            os.system(f'python2 sdag.py ./working/{self.name}.sdag')
 
         return
 
