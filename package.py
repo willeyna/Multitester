@@ -1037,22 +1037,18 @@ Ran with filename: {self.name}
             self.args['Ebc'] = Ebc
 
         else:
-            signal = np.concatenate([sig_t, sig_c])
-            background = np.concatenate([bkg_t, bkg_c])
-
-            #background pdf creation based on dec dist
-            sin_decs = np.concatenate([bkg_t['sinDec'], bkg_c['sinDec']])
+            #Without any topology changes, we set the pdfs to all come from track events as you would in a normal PS search
 
             #log in interpolation makes sure no pdf values are negative
-            hist, bins = np.histogram(sin_decs, density=True, bins = 10)
+            hist, bins = np.histogram(bkg_t['sinDec'], density=True, bins = 10)
             B = InterpolatedUnivariateSpline((bins[1:] + bins[:-1]) / 2., np.log(hist), k=3)
 
             print("Background spatial spline created")
 
             #Interpolation is MUCH faster to call than the scipy kde function, so we interpoalte over the kde
             #signal and background energy pdfs
-            Es = InterpolatedUnivariateSpline(E_x, (gaussian_kde(signal['logE'])(E_x)), k = 3)
-            Eb = InterpolatedUnivariateSpline(E_x, (gaussian_kde(background['logE'])(E_x)), k = 3)
+            Es = InterpolatedUnivariateSpline(E_x, (gaussian_kde(sig_t['logE'])(E_x)), k = 3)
+            Eb = InterpolatedUnivariateSpline(E_x, (gaussian_kde(bkg_t['logE'])(E_x)), k = 3)
 
             print("Energy splines created")
 
