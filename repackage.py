@@ -40,5 +40,5 @@ outdat.sort(axis=0)
 
 print("packing data")
 
-np.savez('./data/'+ tester.name + '/' + tester.name + "_BKG.npz", TS = outdat, dec = declinations, runtime = cputime)
+np.savez('./data/' +tester.name +'/' + tester.name + "_BKG.npz", TS = outdat, dec = declinations, time = cputime)
 print(f'file saved to ./data/{tester.name}/{tester.name}_BKG.npz')
