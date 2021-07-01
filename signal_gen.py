@@ -16,4 +16,4 @@ for i in (np.arange(tester.signal_trials)):
 t2= datetime.datetime.now()
 dt=(t2-t1).total_seconds()
 
-np.savez('./data/'+tester.name + '/' + tester.name + "_SIGNAL.npz", TS = signal_TS, dec = declinations, runtime = dt)
+np.savez('./data/'+ tester.name + '/' + tester.name + "_SIGNAL.npz", TS = signal_TS, dec = declinations, runtime = dt)
